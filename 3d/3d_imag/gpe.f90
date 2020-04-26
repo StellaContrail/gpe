@@ -1,5 +1,5 @@
-! Imaginary time-development of Gross-Pitaevskii Equation in 2 dimensional space
-! For a reason of Hamiltonian being not dense matrix, we will use just multiple dimensional array here
+! Three dimensional Gross Pitaevskii Equation Solver
+! Predictor-Corrector 
 
 program main
     use io
@@ -9,14 +9,17 @@ program main
     ! Mathematical constants
     double precision,parameter     :: pi   = acos(-1d0)       ! PI
     complex(kind(0d0)),parameter   :: iu   = dcmplx(0d0, 1d0) ! Imaginary unit
+
     ! Physical constants
     double precision,parameter     :: hbar = 1.05d-34         ! Reduced Plank constant
+
     ! Physical values
     integer                        :: N                   ! Number of division in space
-    complex(kind(0d0)),allocatable :: Phi_phased(:, :, :) ! Temporary wave function used by zhbev
+    complex(kind(0d0)),allocatable :: Phi_phased(:, :, :) ! Wave function to be phased
     double precision,allocatable   :: Phi_next(:, :, :)   ! Wave function at next step
     double precision,allocatable   :: Phi_prev(:, :, :)   ! Wave function at previous step
-    double precision,allocatable   :: Phi_temp(:, :, :)
+    double precision,allocatable   :: Phi_temp(:, :, :)   ! Wave function used temporarily
+    double precision,allocatable   :: density(:, :, :)    ! Density distribution of wave function
     double precision,allocatable   :: Pot(:, :, :)        ! Potential
     double precision               :: dh                  ! Step of distance in the x-direction
     double precision               :: dt                  ! Step of time     in the t-direction
@@ -128,8 +131,7 @@ program main
     ! Start solving 2D GPE
     do i = 1, 50000
         ! Evolve the system
-        call evolve(Phi_prev, N, dt, dh, epsilon, kappa, abs(Phi_prev)**2d0, Pot, Phi_temp)
-        Phi_next(:,:,:) = sqrt(0.7d0*abs(Phi_prev(:,:,:))**2d0 + 0.3d0*abs(Phi_next(:,:,:))**2d0)
+        call evolve(Phi_prev, N, dt, dh, epsilon, kappa, Pot, Phi_next)
         call normalize(Phi_next, N, dh)
 
         ! Calculate chemical potential

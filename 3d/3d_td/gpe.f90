@@ -147,8 +147,7 @@ program main
     display_output_interval = 500
     do i = 1, iterations
         ! Evolve the system
-        call evolve(Phi_prev, N, dt, dh, epsilon, kappa, iu, abs(Phi_prev)**2d0, Pot_TD, Phi_next)
-        Phi_next(:,:,:) = sqrt(0.5d0*abs(Phi_prev(:,:,:))**2d0 + 0.5d0*abs(Phi_next(:,:,:))**2d0)
+        call evolve(Phi_prev, N, dt, dh, epsilon, kappa, iu, Pot_TD, Phi_next)
 
         if (mod(i, 50) == 0) then
             ! Save wave function

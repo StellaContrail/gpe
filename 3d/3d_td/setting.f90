@@ -15,6 +15,7 @@ contains
         double precision,parameter      :: sigma = 0.5d0
         ! mode  : Specify type of potential forms
         integer,parameter               :: mode = 0
+        double precision,parameter      :: R_cylinder = 5d0
         Phi_next(:, :, :) = dcmplx(0d0, 0d0)
 
         open(30, file=fn_input)
@@ -64,10 +65,10 @@ contains
                         Pot(i,j,k) = 0.5d0*(x*x*2d0+gamma_y*gamma_y*y*y*0.06d0+gamma_z*gamma_z*z*z*2d0)
                     case (5)
                         ! Cylinder Trap
-                        if (sqrt(x**2d0+y**2d0) < 5d0 .and. abs(z) < 8d0) then
-                            Pot(i,j,k) = -5d0
+                        if (x**2d0+y**2d0 < R_cylinder) then
+                            Pot(i,j,k) = 0
                         else
-                            Pot(i,j,k) = 0d0
+                            Pot(i,j,k) = 5d0
                         end if
                     case default
                         stop "Invalid mode of external potential"

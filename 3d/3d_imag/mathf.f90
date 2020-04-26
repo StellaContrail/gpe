@@ -3,7 +3,7 @@ module mathf
     implicit none
 contains
     ! Integration
-    subroutine integrate(f, N, dh, sum)
+    subroutine integrate3d(f, N, dh, sum)
         integer,intent(in)           :: N
         double precision,intent(in)  :: f(0:N, 0:N, 0:N), dh
         double precision,intent(out) :: sum
@@ -46,18 +46,20 @@ contains
         double precision,intent(in)     :: dh
         double precision,intent(inout)  :: f(0:N, 0:N, 0:N)
         double precision                :: sum
-        call integrate(f(:, :, :)**2d0, N, dh, sum)
+        call integrate3d(f(:, :, :)**2d0, N, dh, sum)
         f(:, :, :) = f(:, :, :) / sqrt(sum)
-    end subroutine normalize
+    end subroutine
 
     ! Imaginary-time propagation
-    subroutine evolve(Phi_old, N, dt, dh, epsilon, kappa, density, Pot, Phi_next)
+    subroutine evolve(Phi_old, N, dt, dh, epsilon, kappa, Pot, Phi_next)
         integer,intent(in)           :: N
-        double precision,intent(in)  :: dt, dh, epsilon, kappa, density(0:N,0:N,0:N), Pot(0:N,0:N,0:N)
+        double precision,intent(in)  :: dt, dh, epsilon, kappa, Pot(0:N,0:N,0:N)
         double precision,intent(in)  :: Phi_old(0:N,0:N,0:N)
         double precision,intent(out) :: Phi_next(0:N,0:N,0:N)
         integer                      :: i
-        double precision             :: temp(0:N,0:N,0:N), Atemp(0:N,0:N,0:N)
+        double precision             :: temp(0:N,0:N,0:N), Atemp(0:N,0:N,0:N), density(0:N,0:N,0:N)
+        ! Use previous wave function as density
+        density = Phi_old**2d0
         ! First term of Taylor expansion
         temp(:,:,:)     = Phi_old(:,:,:)
         Phi_next(:,:,:) = temp(:,:,:)
@@ -68,7 +70,20 @@ contains
             temp(:,:,:)   = -Atemp(:,:,:)*dt/(epsilon*i)
             Phi_next(:,:,:) = Phi_next(:,:,:) + temp(:,:,:)
         end do
-    end subroutine evolve
+
+        ! Use mixture of previous and next wave function as density (Linear extrapolation method)
+        density = 0.7d0 * Phi_old**2d0 + 0.3d0 * Phi_next**2d0
+        ! First term of Taylor expansion
+        temp(:,:,:)     = Phi_old(:,:,:)
+        Phi_next(:,:,:) = temp(:,:,:)
+        ! Other terms of Taylor expansion
+        do i = 1, 10
+            call apply_hamiltonian(temp, N, dh, epsilon, kappa, density, Pot, Atemp)
+            ! Atemp = H*LastTerm
+            temp(:,:,:)   = -Atemp(:,:,:)*dt/(epsilon*i)
+            Phi_next(:,:,:) = Phi_next(:,:,:) + temp(:,:,:)
+        end do
+    end subroutine
 
     ! Calculate HPhi (H:Hamiltonian, Phi:Wave function)
     subroutine apply_hamiltonian(Phi, N, dh, epsilon, kappa, density, Pot, HPhi)
@@ -184,18 +199,6 @@ contains
         mu = sum
     end subroutine
     
-    ! Shift wave fuction's phase partially
-    subroutine shift_phase(Phi_IN, N, x_start, x_end, y_start, y_end, z_start, z_end, Phi_OUT, iu, angle)
-        integer,intent(in)             :: x_start, x_end, y_start, y_end, z_start, z_end, N
-        double precision,intent(in)    :: angle
-        double precision,intent(in)    :: Phi_IN(0:N,0:N,0:N)
-        complex(kind(0d0)),intent(in)  :: iu
-        complex(kind(0d0)),intent(out) :: Phi_OUT(0:N,0:N,0:N)
-        Phi_OUT(:,:,:) = Phi_IN(:,:,:)
-
-        Phi_OUT(x_start:x_end,y_start:y_end,z_start:z_end) = exp(iu*angle) * Phi_IN(x_start:x_end,y_start:y_end,z_start:z_end)
-    end subroutine
-
     subroutine make_vortex(Phi, N, xmax, dh, iu, Phi_phased)
         integer,intent(in)             :: N
         double precision,intent(in)    :: Phi(0:N,0:N,0:N), xmax, dh
@@ -203,7 +206,7 @@ contains
         complex(kind(0d0)),intent(out) :: Phi_phased(0:N,0:N,0:N)
         integer                        :: i, j, k
         double precision               :: x, y, z, phase
-        double precision               :: R = 5d0
+        double precision               :: R = 3d0
 
         do k = 0, N
             z = -xmax + dh*k

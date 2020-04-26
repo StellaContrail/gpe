@@ -51,13 +51,28 @@ contains
     end subroutine normalize
 
     ! Real-time propagation
-    subroutine evolve(Phi_old, N, dt, dh, epsilon, kappa, iu, density, Pot, Phi_next)
+    subroutine evolve(Phi_old, N, dt, dh, epsilon, kappa, iu, Pot, Phi_next)
         integer,intent(in)             :: N
-        double precision,intent(in)    :: dt, dh, epsilon, kappa, density(0:N,0:N,0:N), Pot(0:N,0:N,0:N)
+        double precision,intent(in)    :: dt, dh, epsilon, kappa, Pot(0:N,0:N,0:N)
         complex(kind(0d0)),intent(in)  :: Phi_old(0:N,0:N,0:N), iu
         complex(kind(0d0)),intent(out) :: Phi_next(0:N,0:N,0:N)
         integer                        :: i
         complex(kind(0d0))             :: temp(0:N,0:N,0:N), Atemp(0:N,0:N,0:N)
+        double precision               :: density(0:N,0:N,0:N)
+        
+        density = abs(Phi_old)**2d0
+        ! First term of Taylor expansion
+        temp(:,:,:)     = Phi_old(:,:,:)
+        Phi_next(:,:,:) = temp(:,:,:)
+        ! Other terms of Taylor expansion
+        do i = 1, 10
+            call apply_hamiltonian(temp, N, dh, epsilon, kappa, density, Pot, Atemp)
+            temp(:,:,:)   = -iu*Atemp(:,:,:)*dt/(epsilon*i)
+            Phi_next(:,:,:) = Phi_next(:,:,:) + temp(:,:,:)
+        end do
+
+        ! Predictor-Corrector method
+        density = 0.5d0*abs(Phi_old)**2d0 + 0.5d0*abs(Phi_next)**2d0
         ! First term of Taylor expansion
         temp(:,:,:)     = Phi_old(:,:,:)
         Phi_next(:,:,:) = temp(:,:,:)

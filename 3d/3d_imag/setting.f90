@@ -10,7 +10,8 @@ contains
       double precision              :: x, y, z
       integer                       :: i, j, k
       double precision,parameter    :: sigma = 0.5d0
-      integer,parameter             :: mode = 0
+      integer,parameter             :: mode = 5
+      double precision,parameter    :: R_cylinder = 3d0
       Phi_next(:, :, :) = 0d0
 
       do k = 0, N
@@ -53,10 +54,10 @@ contains
                     end if
                 case (5)
                     ! Cylinder Trap
-                    if (sqrt(x**2d0+y**2d0) < 5d0 .and. abs(z) < 8d0) then
-                        Pot(i,j,k) = -5d0
-                    else
+                    if (x**2d0+y**2d0 < R_cylinder**2d0) then
                         Pot(i,j,k) = 0d0
+                    else
+                        Pot(i,j,k) = 5d0
                     end if
                 case default
                     stop "Invalid mode of external potential"
