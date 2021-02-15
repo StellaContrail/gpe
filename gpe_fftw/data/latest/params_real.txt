@@ -1,0 +1,15 @@
+# space step
+dh = .4000000000
+# time step
+dt = .0040000000
+iters_rtime = 37500
+iters_rtime_skip = 100
+# space points
+Nx = 50
+Ny = 50
+Nz = 50
+# box size
+xmax = 9.8000000000
+# for plotting
+density_max = 1.9045575627
+flux_max = 1.0477021217

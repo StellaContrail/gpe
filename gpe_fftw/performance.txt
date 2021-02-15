@@ -1,0 +1,64 @@
+https://www.numbercrunch.de/blog/2010/03/parallel-fft-performance/
+
+with lfftw3_omp
+FFTW_THREADS = 1, OMP_THREADS = 1, FFTW_CODE = 1 , 0 h 43 m 04 s
+FFTW_THREADS = 2, OMP_THREADS = 2, FFTW_CODE = 1 , 0 h 34 m 33 s
+FFTW_THREADS = 4, OMP_THREADS = 4, FFTW_CODE = 1 , 0 h 29 m 07 s
+FFTW_THREADS = 8, OMP_THREADS = 8, FFTW_CODE = 1 , 0 h 28 m 11 s
+
+with lfftw3_threads
+FFTW_THREADS = 1, OMP_THREADS = 1, FFTW_CODE = 1 , 0 h 42 m 10 s
+FFTW_THREADS = 2, OMP_THREADS = 1, FFTW_CODE = 1 , 1 h 38 m 40 s
+FFTW_THREADS = 4, OMP_THREADS = 1, FFTW_CODE = 1 , 1 h 30 m 29 s
+FFTW_THREADS = 8, OMP_THREADS = 1, FFTW_CODE = 1 , 1 h 05 m 07 s
+
+=> lfftw3_threads seems not working
+
+Segmentation fault even before any variables get allocated...?????????
+All arrays in the main program are allocatable...
+mpirun noticed that process rank 0 with PID 27491 on node nu7 exited on signal 11 (Segmentation fault).
+############################################################
+    Program received signal SIGSEGV, Segmentation fault.
+    0x000000000040360c in main () at gpe.f90:14
+    warning: Source file is more recent than executable.
+    14      program main
+############################################################
+Solution: -heap-arrays (ifort), -fmax-stack-var-size=n (gfortran)
+
+nu1:gfortran nu3:gfortran nu7:ifort
+
+Debug all information 
+alias ifortdev 'ifort -mkl=sequential -check all -warn all -gen_interfaces -fpe0 -ftrapuv -traceback -g'
+alias gfortrandev 'gfortran -Wall -fbounds-check -ffpe-trap=invalid,overflow -fbacktrace -g'
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+<Environment> nu1, gfortran, -fmax-stack-var-size=0
+
+with lfftw3_omp (no vortex/no pinnings) 50x50x50=125000arrays ~ 125000*2*8bytes=2MB
+FFTW_THREADS = 1, OMP_THREADS = 1, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0080 sec (x1.00)
+FFTW_THREADS = 2, OMP_THREADS = 2, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0058 sec (x1.38)
+FFTW_THREADS = 3, OMP_THREADS = 3, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0050 sec (x1.60)
+FFTW_THREADS = 4, OMP_THREADS = 4, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0045 sec (x1.78)
+FFTW_THREADS = 8, OMP_THREADS = 8, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0042 sec (x1.90)
+
+with lfftw3_omp (no vortex/no pinnings) 100x100x100=1000000arrays ~ 1,000,000*2*8bytes=16MB
+FFTW_THREADS = 1, OMP_THREADS = 1, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0823 sec (x1.00)
+FFTW_THREADS = 2, OMP_THREADS = 2, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0803 sec (x1.03)
+FFTW_THREADS = 3, OMP_THREADS = 3, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0656 sec (x1.25)
+FFTW_THREADS = 4, OMP_THREADS = 4, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0577 sec (x1.43)
+FFTW_THREADS = 8, OMP_THREADS = 8, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0445 sec (x1.85)
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+LOCAL with lfftw3_omp (no vortex/no pinnings) 50x50x50=125000arrays ~ 125000*2*8bytes=2MB
+FFTW_THREADS = 1, OMP_THREADS = 1, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] 0.0674908 sec/iter (x1.00) [LAPLACIAN] 0.0064897 sec (x1.00)
+FFTW_THREADS = 2, OMP_THREADS = 2, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] 0.0572009 sec/iter (x1.18) [LAPLACIAN] 0.0047966 sec (x1.35)
+FFTW_THREADS = 3, OMP_THREADS = 3, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0044030 sec (x1.47)
+FFTW_THREADS = 4, OMP_THREADS = 4, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN]  sec (x2.56)
+FFTW_THREADS = 8, OMP_THREADS = 8, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--)
+
+LOCAL with lfftw3_omp (no vortex/no pinnings) 100x100x100=1000000arrays ~ 1,000,000*2*8bytes=16MB
+FFTW_THREADS = 1, OMP_THREADS = 1, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x1.00) [LAPLACIAN] 0.0572201 sec (x1.00)
+FFTW_THREADS = 2, OMP_THREADS = 2, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x1.18) [LAPLACIAN] 0.0406141 sec (x1.41)
+FFTW_THREADS = 3, OMP_THREADS = 3, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN] 0.0355021 sec (x1.61)
+FFTW_THREADS = 4, OMP_THREADS = 4, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--) [LAPLACIAN]  sec (x)
+FFTW_THREADS = 8, OMP_THREADS = 8, FFTW_CODE = 1 , [REAL] -- h -- m -- s , [STATIC(EVOLVE)] -.------- sec/iter (x-.--)
