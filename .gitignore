@@ -1,4 +1,7 @@
 a.out
 *.mod
 *.silo
-
+*.o
+ut
+simulation/data_*
+misc/output/
