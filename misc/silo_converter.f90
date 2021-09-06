@@ -1,3 +1,15 @@
+!============================================!
+!                                            !
+!               Silo converter               !
+!              by Teppei Sasaki              !
+!                                            !
+!                updated:2021                !
+!                                            !
+!============================================!
+
+! todos:
+! - create snapshot from a static solution
+
 module conf
     integer             :: dims(3)
     double precision    :: dt
@@ -39,8 +51,8 @@ program main
     write (*, '(1X,A)', advance='no') "Input filename?: "
     read (*, *) INPUT_FN_TEMP
     INPUT_FN  = trim(INPUT_FN_TEMP)
-    !INPUT_DIR = "/home/contrail/research/2d/"//INPUT_FN//"/latest/"
-    INPUT_DIR = "/home/contrail/results/3d/temporal/"//INPUT_FN//"/latest/"
+    INPUT_DIR = "/home/contrail/research/simulation/"//INPUT_FN//"/latest/"
+    !INPUT_DIR = "/home/contrail/results/3d/temporal/"//INPUT_FN//"/latest/"
 
     ! Read configuration from config.dat
     open(200, file=INPUT_DIR//"config.dat", status="old")
