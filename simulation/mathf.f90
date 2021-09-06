@@ -822,17 +822,6 @@ contains
         v_dr = 0.5d0 * v_dr
     end function
 
-    ! laboratory frame
-    function fixRotation(Phi, Pot, OMEGA_z) result(Phi_)
-        complex(kind(0d0)),intent(in)   :: Phi(1:NL)
-        double precision,intent(in)     :: Pot(1:NL)
-        double precision,intent(in)     :: OMEGA_z(1:Nz)
-        complex(kind(0d0))              :: Phi_(1:NL)
-        double precision                :: mu
-        mu = calc_mu(Phi, Pot, OMEGA_z)
-        Phi_ = exp( iu*mu*dt_real )*Phi
-    end function
-
     ! FFTW Gradient
     subroutine gradient_fftw(G)
         complex(kind(0d0)),intent(in) :: G(1:NL)
