@@ -7,7 +7,7 @@
 
 module conf
     implicit none
-    integer             :: dims(3)   = (/ 100, 100, 100 /)
+    integer             :: dims(3)   = (/ 100, 100, 1 /)
     double precision    :: dt        = 0.004d0
     integer             :: iter_skip = 100
     character           :: dimnames(3) = (/ "x", "y", "z" /)
@@ -28,6 +28,8 @@ module temp
     character(len=64)               :: iter_str
     character(len=64)               :: FN_OUTPUT
     character(:),allocatable        :: COMMENT
+    character(:),allocatable        :: INPUT_DIR, INPUT_FN
+    character(len=64)               :: INPUT_FN_TEMP
     integer                         :: optlistid
     integer                         :: iter_total, iter_limit
     double precision                :: time
@@ -48,7 +50,7 @@ program main
     allocate( dreal(NL), dimag(NL), phase(NL) )
 
     write (*, '(X, I0, A, I0, A, I0)') dims(1), "x", dims(2), "x", dims(3)
-        
+    
     FN_OUTPUT = "imag_snapshot.silo"
     COMMENT   = "density distribution"
     ierr = dbcreate(trim(FN_OUTPUT), len(trim(FN_OUTPUT)), DB_CLOBBER, DB_LOCAL, &
@@ -57,7 +59,11 @@ program main
         write (*, *) "Could not create silo file"
     end if
 
-    FILEPATH = "./data_021552/latest/"
+    
+    write (*, '(1X,A)', advance='no') "Input filename?: "
+    read (*, *) INPUT_FN_TEMP
+    INPUT_FN  = trim(INPUT_FN_TEMP)
+    FILEPATH = "./"//INPUT_FN//"/latest/"
     open(100, file=FILEPATH//"wf_imag.bin", form="unformatted", status="old")
     open(300, file=FILEPATH//"potential.bin", form="unformatted", status="old")
     i = 1
