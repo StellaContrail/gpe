@@ -166,7 +166,9 @@ program main
         close(60)
     end if
 
-    100 continue
+    if ( .not. should_calc_real ) then
+        goto 200
+    end if
 
     if ( mpi_rank == 0 ) then
         energies = calc_energies(Phi, Pot, OMEGA_z)
@@ -177,26 +179,6 @@ program main
         write (*, *)
     endif
     ! ---------------------------------------------------------------------------------------------
-
-    if ( .not. should_calc_real ) then
-        write (*, '(1X, F0.16, A)') calc_mu(Phi, Pot, OMEGA_z)
-        write (*, '(1X, F0.16, A)') energies(1)
-        write (*, '(1X, F0.16, A)') energies(2)
-        write (*, '(1X, F0.16, A)') energies(3)
-        write (*, '(1X, F0.16, A)') energies(4)
-        write (*, '(1X, F0.16, A)') sum( energies )
-        write (*, *)
-
-        call destroy_fftw
-        !call MPI_Finalize( mpi_ierr )
-        deallocate ( density )
-        deallocate ( flux )
-        deallocate ( Phi, Pot, Phi_old )
-        deallocate ( old_phi, ztemp, ztemp2, HPhi )
-        deallocate ( i2ix, i2iy, i2iz, ixyz2i )
-        deallocate ( zgrad, zLzPhi, drevert, ztrans, zlap, zAbs2Gradient )
-        stop "Program exited gracefully"
-    end if
 
     ! REAL TIME DEVELOPMENT -----------------------------------------------------------------------
     if ( mpi_rank == 0 ) then
@@ -222,6 +204,16 @@ program main
     call cpu_time(t1)
     do iter = 0, iters_rtime
         time = iter * dt_real
+
+        ! create vortex
+        if ( iter == vortex_dyn_iter ) then
+            call make_vortex(Phi, 1, x0_vortex_dyn, y0_vortex_dyn)
+        end if
+        ! create sound wave
+        if ( iter == sound_dyn_iter ) then
+            call set_pin(Pot, x0_sound_dyn, y0_sound_dyn, z0_sound_dyn, Vsound, delta_sound)
+        end if
+
         call evolve(Phi, Pot, OMEGA_z, .false.)
         OMEGA_z = omega_real+domega_dt*time
         OMEGA_z = OMEGA_z*RAND_RATE
@@ -247,8 +239,7 @@ program main
                 flux = calc_flux(Phi)
                 open(100, file=RESULT_DIRECTORY // "wf_real/frame_" // trim(iter_str) // ".bin", form="unformatted")
                 open(110, file=RESULT_DIRECTORY // "flux_real/frame_" // trim(iter_str) // ".bin", form="unformatted")
-                !call output_complex_unit(100, Phi)
-                call output_complex_unit(100, fixRotation(Phi, Pot, OMEGA_z))
+                call output_complex_unit(100, Phi)
                 call output_flux_unit(110, flux)
                 close(100)
                 close(110)
@@ -259,6 +250,8 @@ program main
     calc_time = t2 - t1
     write (*, '(1X, A, 3(I0, A))') "calculation took ", &
     &int( calc_time / 3600 ), " h ", int( mod(calc_time, 3600d0) / 60 ), " m ", int( mod(calc_time, 60d0) ), " s"
+
+200 continue
 
     if ( mpi_rank == 0 ) then
         close(120)

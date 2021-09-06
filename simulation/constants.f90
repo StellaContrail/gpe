@@ -30,6 +30,13 @@ module constants
     ! initial vortex
     logical          :: vortex_exists
     double precision :: x0_vortex, y0_vortex
+    ! dynamically created vortex
+    integer          :: vortex_dyn_iter
+    double precision :: x0_vortex_dyn, y0_vortex_dyn
+    ! dynamcally created soundwave
+    integer          :: sound_dyn_iter
+    double precision :: x0_sound_dyn, y0_sound_dyn, z0_sound_dyn
+    double precision :: Vsound, delta_sound
     ! pinning site
     logical          :: pin_exists
     double precision :: x0_pin, y0_pin, z0_pin
@@ -68,6 +75,11 @@ contains
         read (100, *) dummy
         vortex_exists = tological(dummy)
         read (100, *) x0_vortex, y0_vortex
+        read (100, *) vortex_dyn_iter
+        read (100, *) x0_vortex_dyn, y0_vortex_dyn
+        read (100, *) sound_dyn_iter
+        read (100, *) x0_sound_dyn, y0_sound_dyn, z0_sound_dyn
+        read (100, *) Vsound, delta_sound
         read (100, *) dummy
         pin_exists = tological(dummy)
         read (100, *) x0_pin, y0_pin, z0_pin
