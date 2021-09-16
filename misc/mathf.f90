@@ -68,7 +68,7 @@ contains
 
     subroutine check_validity(xpos)
         complex(kind(0d0)) :: f(1:NL), g(1:NL), h(1:NL), zgrad(1:NL,1:3), zlap(1:NL)
-        integer            :: ix, iy, iz, i
+        integer            :: i
         double precision   :: xpos(1:NL), x
         do i = 1, NL
             x = xpos(i)
@@ -102,7 +102,7 @@ contains
         complex(kind(0d0)),intent(in) :: Phi(1:NL)
         complex(kind(0d0))            :: temp(1:NL), zgrad(1:NL,1:3)
         double precision              :: J(1:NL,3)
-        integer                       :: id, i
+        integer                       :: id
         ! calculate probability current and return it
         temp = transform_fftw(Phi)
         
@@ -121,7 +121,6 @@ contains
         complex(kind(0d0))            :: temp(1:NL,1:3)
         complex(kind(0d0))            :: R(1:NL,3)
         integer                       :: id
-        integer                       :: i, ix, iy, iz
         
         do id = 1, 3
             VK(:,id) = transform_fftw( dcmplx(V(:,id),0d0) )
@@ -240,7 +239,7 @@ contains
     ! FFTW Gradient
     function gradient_fftw(F) result(G)
         complex(kind(0d0)),intent(in) :: F(1:NL)
-        complex(kind(0d0))            :: G(1:NL,1:3), temp(1:NL,1:3)
+        complex(kind(0d0))            :: G(1:NL,1:3)
         integer                       :: id
         do id = 1, 3
             G(:,id) = iu*revert_fftw( F(:)*K(:,id) )
@@ -251,7 +250,6 @@ contains
     function laplacian_fftw(F) result(G)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         complex(kind(0d0))            :: G(1:NL)
-        double precision              :: t1, t2
         G = -1d0*revert_fftw( F*K2 )
     end function
 

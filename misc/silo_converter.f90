@@ -10,22 +10,23 @@
 ! todos:
 ! - create snapshot from a static solution
 
-module conf
+program main
+    use mathf
+    implicit none
+    include "silo.inc"
+    ! Configuration
     integer             :: dims(3)
     double precision    :: dt
     integer             :: iter_rtime, iter_rtime_skip
     character,parameter :: dimnames(3)  = (/"x", "y", "z"/)
     integer,parameter   :: ldimnames(3) = (/1, 1, 1/)
-end module
-
-module temp
-    integer                         :: ix, iy, iz, i, j
+    ! Temporary variable
+    integer                         :: ix, iy, iz, i
     complex(kind(0d0)),allocatable  :: Phi(:)
     double precision,allocatable    :: flux(:,:), density(:)
     double precision,allocatable    :: xpos(:), ypos(:), zpos(:)
     double precision,allocatable    :: ix2x(:), iy2y(:), iz2z(:)
-    double precision                :: x, y, z, real, imag, dummy, r
-    double precision                :: dhalf
+    double precision                :: real, imag, dummy
     double precision,allocatable    :: V(:), curl_norm(:)
     complex(kind(0d0)),allocatable  :: kinetic(:), curl(:,:)
     integer                         :: dbfile, ierr, status
@@ -35,14 +36,6 @@ module temp
     integer                         :: iter, iter_max, iter_total
     double precision                :: time
     integer                         :: optlistid
-end module
-
-program main
-    use conf
-    use temp
-    use mathf
-    implicit none
-    include "silo.inc"
     
     write (*, '(A)') "Silo Converter ----------------------------"
     write (*, '(A)') " converts simulation result into silo files"
@@ -69,12 +62,12 @@ program main
 
     write (*, *) "Input folder set as "//INPUT_DIR
     write (*, '(1X, 3(A, I0))') "Specified dimension is: ", dims(1), "x", dims(2), "x", dims(3)
-    write (*, '(1X,A)', advance="no") "Hit Enter to continue or Ctrl+D to exit..."
+    write (*, '(1X,A)', advance="no") "Hit Enter to continue or Ctrl+C to exit..."
     read (*, *)
 
     call initialize_mathf(dims, 0.2d0)
     allocate( V(NL), density(NL) )
-    allocate( Phi(NL), flux(NL,1:3) )
+    allocate( Phi(NL), flux(NL,3) )
     allocate( xpos(NL), ypos(NL), zpos(NL) )
     allocate( ix2x(dims(1)), iy2y(dims(2)), iz2z(dims(3)) )
     allocate( kinetic(NL), curl(NL,3), curl_norm(NL) )
@@ -129,28 +122,20 @@ program main
         ierr = dbputqv1(dbfile, "phase", 5, "mesh", 4, atan2(aimag(Phi), dreal(Phi)), dims, 3, DB_F77NULL, 0,&
         DB_DOUBLE, DB_NODECENT, optlistid, status)
 
-        !ierr = dbputqv1(dbfile, "curl", 4, "mesh", 4, curl_norm, dims, 3, DB_F77NULL, 0,&
-        !DB_DOUBLE, DB_NODECENT, optlistid, status)
         ierr = dbputqv1(dbfile, "curlperdensity", 14, "mesh", 4, curl_norm/density, dims, 3, DB_F77NULL, 0,&
         DB_DOUBLE, DB_NODECENT, optlistid, status)
-        ierr = dbputqv1(dbfile, "curlperdensityext", 17, "mesh", 4, curl_norm/(density+1d0), dims, 3, DB_F77NULL, 0,&
-        DB_DOUBLE, DB_NODECENT, optlistid, status)
-
-        !ierr = dbputqv1(dbfile, "kinetic", 7, "mesh", 4, dble(kinetic), dims, 3, DB_F77NULL, 0,&
-        !DB_DOUBLE, DB_NODECENT, optlistid, status)
-        !ierr = dbputqv(dbfile, "flux", 4, "mesh", 4, 3,  dimnames, ldimnames, flux,&
-        !dims, 3, DB_F77NULL, 0, DB_DOUBLE, DB_NODECENT, optlistid, status)
         do i = 1, 3
             flux(:,i) = flux(:,i) / density(:)
         end do
-        ierr = dbputqv(dbfile, "fluxperdensity", 14, "mesh", 4, 3,  dimnames, ldimnames, flux,&
+        ierr = dbputqv(dbfile, "fluxperdensity", 14, "mesh", 4, 3, dimnames, ldimnames, flux,&
         dims, 3, DB_F77NULL, 0, DB_DOUBLE, DB_NODECENT, DB_F77NULL, status)
-        ierr = dbclose(dbfile)
-        ierr = dbfreeoptlist(optlistid)
 
         if ( mod(iter, 25) == 0 ) then
             write (*, '(1X, I0, A, I0)') iter, "/", iter_max
         end if
+
+        ierr = dbclose(dbfile)
+        ierr = dbfreeoptlist(optlistid)
     end do
     if ( mod(iter_max, 25) /= 0 ) then
         write (*, '(1X, I0, A, I0)') iter_max, "/", iter_max
