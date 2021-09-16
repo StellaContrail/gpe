@@ -27,7 +27,7 @@ program main
     double precision,allocatable   :: OMEGA_z(:), RAND_RATE(:)
     logical                        :: is_conv
     double precision               :: time
-    double precision               :: Lz_new, Lz_old, Nc, Ic_
+    double precision               :: Lz_new, Lz_old, Nc, Ic_, L(1:3)
     character(len=7)               :: iter_str
     ! DATA DIRECTORY
     character(len=19)              :: RESULT_DIRECTORY
@@ -37,14 +37,14 @@ program main
     call load_config
 
     ! ALLOCATION
-    allocate ( density(1:NL) )
-    allocate ( flux(1:NL,1:3) )
-    allocate ( Phi(1:NL), Pot(1:NL), Phi_old(1:NL) )
-    allocate ( old_phi(1:NL), ztemp(1:NL), ztemp2(1:NL), HPhi(1:NL) )
-    allocate ( i2ix(1:NL), i2iy(1:NL), i2iz(1:NL), ixyz2i(1:Nx, 1:Ny, 1:Nz) )
-    allocate ( zgrad(1:NL,1:3), zLzPhi(1:NL), drevert(1:NL), ztrans(1:NL), zlap(1:NL), zAbs2Gradient(1:NL) )
-    allocate ( OMEGA_z(1:Nz), RAND_RATE(1:Nz) )
-
+    allocate( density(1:NL) )
+    allocate( flux(1:NL,1:3) )
+    allocate( Phi(1:NL), Pot(1:NL), Phi_old(1:NL) )
+    allocate( old_phi(1:NL), ztemp(1:NL), ztemp2(1:NL), HPhi(1:NL) )
+    allocate( i2ix(1:NL), i2iy(1:NL), i2iz(1:NL), ixyz2i(1:Nx, 1:Ny, 1:Nz) )
+    allocate( zgrad(1:NL,1:3), drevert(1:NL), ztrans(1:NL), zlap(1:NL), zAbs2Gradient(1:NL) )
+    allocate( zLxPhi(1:NL), zLyPhi(1:NL), zLzPhi(1:NL) )
+    allocate( OMEGA_z(1:Nz), RAND_RATE(1:Nz) )
 
     !$ write (*, '(1X,A)') "OpenMP is valid."
     call prepare_mpi
@@ -92,7 +92,7 @@ program main
 
     ! CREATE VORTEX
     if ( vortex_exists ) then
-        call make_vortex(Phi, 1, x0_vortex, y0_vortex)
+        call make_vortex(Phi, vortex_kappa, x0_vortex, y0_vortex)
     end if
 
     ! POTENTIAL & INITIAL WAVEFUNCTION
@@ -166,6 +166,11 @@ program main
         close(60)
     end if
 
+    energies = calc_energies(Phi, Pot, OMEGA_z)
+    if ( mpi_rank == 0 ) then
+        write (*, '(10(F0.16,1X))') energies
+    end if
+
     if ( .not. should_calc_real ) then
         goto 200
     end if
@@ -207,7 +212,7 @@ program main
 
         ! create vortex
         if ( iter == vortex_dyn_iter ) then
-            call make_vortex(Phi, 1, x0_vortex_dyn, y0_vortex_dyn)
+            call make_vortex(Phi, vortex_dyn_kappa, x0_vortex_dyn, y0_vortex_dyn)
         end if
         ! create sound wave
         if ( iter == sound_dyn_iter ) then
@@ -219,20 +224,23 @@ program main
         OMEGA_z = OMEGA_z*RAND_RATE
 
         if (mod(iter, iters_rtime_skip) == 0) then
-            Lz_old  = Lz_new
-            Lz_new  = ParticleN*calc_Lz(Phi)
+            !Lz_old  = Lz_new
+            !Lz_new  = ParticleN*calc_Lz(Phi)
+
+            L = calc_Lall(Phi)
 
             prob         = integrate( abs(Phi)**2 )
             energies     = calc_energies(Phi, Pot, OMEGA_z)
             totE         = sum( energies )
-            ! 1:ITER 2:TIME 3:TOTAL_ENERGY 4:PROBABILITY 5:KINETIC 6:POTENTIAL 7:NONLINEAR 8:CRANKING 9:OMEGA 10:Lz
+            ! 1:ITER 2:TIME 3:TOTAL_ENERGY 4:PROBABILITY 5:KINETIC 6:POTENTIAL 7:NONLINEAR 8:ROTATION 9:OMEGA 10:Lz
             ! plot "energy_real.bin" binary format="%*int%int%9double%*int" using 1:4 w l
             OMEGA_avg = sum(OMEGA_z) / Nz
             write (120) iter, iter*dt_real, totE, prob, energies(1), energies(2), energies(3), energies(4),&
-            OMEGA_avg, Lz_old
-            write (*, '(1X,2(A,I0),5(A,F0.2))') &
+            OMEGA_avg, L(1), L(2), L(3)
+            write (*, '(1X,2(A,I0),10(A,F0.2))') &
             &"Iteration=", iter, "/", iters_rtime, " ( ", 100d0*iter/iters_rtime, "% )  E=",&
-            & totE, " N=", prob, " Ω=", OMEGA_avg, " Lz=", Lz_old/ParticleN
+            !& totE, " N=", prob, " Ω=", OMEGA_avg, " Lz=", Lz_old/ParticleN
+            & totE, " N=", prob, " Ω=", OMEGA_avg, " Lx,Ly,Lz=", L(1), ",", L(2), ",", L(3)
 
             if ( mpi_rank == 0 ) then
                 write (iter_str, '(I0)') iter / iters_rtime_skip

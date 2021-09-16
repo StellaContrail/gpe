@@ -32,7 +32,8 @@ module mathf
     integer,allocatable                     :: i2ix(:), i2iy(:), i2iz(:), ixyz2i(:, :, :)
     complex(kind(0d0)),allocatable          :: old_phi(:), ztemp(:), ztemp2(:), HPhi(:)
     double precision,allocatable            :: density(:)
-    complex(kind(0d0)),allocatable          :: zgrad(:,:), zLzPhi(:), drevert(:), ztrans(:), zlap(:), zAbs2Gradient(:)
+    complex(kind(0d0)),allocatable          :: zgrad(:,:), drevert(:), ztrans(:), zlap(:), zAbs2Gradient(:)
+    complex(kind(0d0)),allocatable          :: zLxPhi(:), zLyPhi(:), zLzPhi(:)
     integer                                 :: DIM         = 0
     double precision                        :: dV          = 0d0
     integer,parameter,private               :: DEFMODE_FDM_ZERO=0,DEFMODE_FDM_PERIODIC=1,DEFMODE_FFT=2
@@ -673,13 +674,26 @@ contains
         complex(kind(0d0)),intent(in)  :: Grad(1:NL,1:3)
         integer                        :: i, ix, iy
         double precision               :: x, y
-        double precision               :: t1, t2
         do i = 1, NL
             ix = i2ix(i); iy = i2iy(i)
             x = xpos(ix); y = ypos(iy)
             zLzPhi(i) = -iu * ( x * Grad(i, 2) - y * Grad(i, 1) )
         end do
     end subroutine LzPhi
+
+    subroutine LallPhi(Phi, Grad)
+        complex(kind(0d0)),intent(in)  :: Phi(1:NL)
+        complex(kind(0d0)),intent(in)  :: Grad(1:NL,1:3)
+        integer                        :: i, ix, iy, iz
+        double precision               :: x, y, z
+        do i = 1, NL
+            ix = i2ix(i); iy = i2iy(i); iz = i2iz(i)
+            x = xpos(ix); y = ypos(iy); z = zpos(iz)
+            zLxPhi(i) = -iu * ( y * Grad(i, 3) - z * Grad(i, 2) )
+            zLyPhi(i) = -iu * ( z * Grad(i, 1) - x * Grad(i, 3) )
+            zLzPhi(i) = -iu * ( x * Grad(i, 2) - y * Grad(i, 1) )
+        end do
+    end subroutine LallPhi
 
     ! Calculate Expected Angular Momentum Value (Excluding Plank constant)
     double precision function calc_Lz(Phi)
@@ -688,19 +702,28 @@ contains
         call LzPhi(Phi, zgrad)
         calc_Lz = dble( integrate(conjg(Phi)*zLzPhi) )
         calc_Lz = calc_Lz / ParticleN
-    end function  
+    end function 
+
+    function calc_Lall(Phi) result(L)
+        complex(kind(0d0)),intent(in)  :: Phi(1:NL)
+        double precision               :: L(1:3)
+        call Gradient(Phi)
+        call LallPhi(Phi, zgrad)
+        L(3) = dble( integrate(conjg(Phi)*zLxPhi) )
+        L(3) = dble( integrate(conjg(Phi)*zLyPhi) )
+        L(3) = dble( integrate(conjg(Phi)*zLzPhi) )
+        L = L / ParticleN
+    end function 
 
     ! Probability Current
     function calc_flux(Phi) result(Flux)
         complex(kind(0d0)),intent(in) :: Phi(1:NL)
         double precision              :: Flux(1:NL, 1:3)
-        integer                       :: i, idir
+        integer                       :: i, id
         double precision              :: t2, t1
         call Gradient(Phi)
-        do idir = 1, 3
-            do i = 1, NL
-                Flux(i, idir) = aimag( conjg(Phi(i)) * zgrad(i, idir) )
-            end do
+        do id = 1, 3
+            Flux(:,id) = aimag( conjg(Phi(:))*zgrad(:,id) )
         end do
     end function
 

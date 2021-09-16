@@ -30,9 +30,11 @@ module constants
     ! initial vortex
     logical          :: vortex_exists
     double precision :: x0_vortex, y0_vortex
+    integer          :: vortex_kappa
     ! dynamically created vortex
     integer          :: vortex_dyn_iter
     double precision :: x0_vortex_dyn, y0_vortex_dyn
+    integer          :: vortex_dyn_kappa
     ! dynamcally created soundwave
     integer          :: sound_dyn_iter
     double precision :: x0_sound_dyn, y0_sound_dyn, z0_sound_dyn
@@ -61,32 +63,29 @@ contains
         read (100, *) dh
         read (100, *) dt_imag, dt_real
         read (100, *) alpha
-        read (100, *) dummy
-        should_calc_real = tological(dummy)
+        read (100, *) dummy; should_calc_real = tological(dummy)
         read (100, *) iters_rtime, iters_rtime_skip
-        read (100, *) dummy
-        is_PC_enabled = tological(dummy)
+        read (100, *) dummy; is_PC_enabled = tological(dummy)
         read (100, *) gamma
         read (100, *) omega_imag, omega_real
         read (100, *) domega_dt
         read (100, *) omega_noise
         read (100, *) R0, Vtrap
         read (100, *) trap_type
-        read (100, *) dummy
-        vortex_exists = tological(dummy)
+        read (100, *) dummy; vortex_exists = tological(dummy)
         read (100, *) x0_vortex, y0_vortex
+        read (100, *) vortex_kappa
+        read (100, *) dummy; pin_exists = tological(dummy)
+        read (100, *) x0_pin, y0_pin, z0_pin
+        read (100, *) Vpin, delta_pin
+        read (100, *) dummy; grid_exists = tological(dummy)
+        read (100, *) Ngrid, Vgrid, delta_grid
         read (100, *) vortex_dyn_iter
         read (100, *) x0_vortex_dyn, y0_vortex_dyn
+        read (100, *) vortex_dyn_kappa
         read (100, *) sound_dyn_iter
         read (100, *) x0_sound_dyn, y0_sound_dyn, z0_sound_dyn
         read (100, *) Vsound, delta_sound
-        read (100, *) dummy
-        pin_exists = tological(dummy)
-        read (100, *) x0_pin, y0_pin, z0_pin
-        read (100, *) Vpin, delta_pin
-        read (100, *) dummy
-        grid_exists = tological(dummy)
-        read (100, *) Ngrid, Vgrid, delta_grid
 
         NL = Nx*Ny*Nz
         xmax = 0.5d0*(Nx-1)*dh
