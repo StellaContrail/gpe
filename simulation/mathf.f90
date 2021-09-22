@@ -709,8 +709,8 @@ contains
         double precision               :: L(1:3)
         call Gradient(Phi)
         call LallPhi(Phi, zgrad)
-        L(3) = dble( integrate(conjg(Phi)*zLxPhi) )
-        L(3) = dble( integrate(conjg(Phi)*zLyPhi) )
+        L(1) = dble( integrate(conjg(Phi)*zLxPhi) )
+        L(2) = dble( integrate(conjg(Phi)*zLyPhi) )
         L(3) = dble( integrate(conjg(Phi)*zLzPhi) )
         L = L / ParticleN
     end function 
