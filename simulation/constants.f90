@@ -47,6 +47,8 @@ module constants
     logical          :: grid_exists
     integer          :: Ngrid
     double precision :: Vgrid, delta_grid
+    ! feedback
+    logical          :: feedback_exists
 contains
     subroutine load_config(path)
         character(*),optional :: path
@@ -86,6 +88,7 @@ contains
         read (100, *) sound_dyn_iter
         read (100, *) x0_sound_dyn, y0_sound_dyn, z0_sound_dyn
         read (100, *) Vsound, delta_sound
+        read (100, *) dummy; feedback_exists = tological(dummy)
 
         NL = Nx*Ny*Nz
         xmax = 0.5d0*(Nx-1)*dh

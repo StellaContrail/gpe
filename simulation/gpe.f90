@@ -27,7 +27,7 @@ program main
     double precision,allocatable   :: OMEGA_z(:), RAND_RATE(:)
     logical                        :: is_conv
     double precision               :: time
-    double precision               :: Lz_new, Lz_old, Nc, Ic_, L(1:3)
+    double precision               :: L_new(1:3), L_old(1:3)
     character(len=7)               :: iter_str
     ! DATA DIRECTORY
     character(len=19)              :: RESULT_DIRECTORY
@@ -177,10 +177,11 @@ program main
 
     if ( mpi_rank == 0 ) then
         energies = calc_energies(Phi, Pot, OMEGA_z)
+        L_new    = calc_Lall(Phi)
         write (*, '(1X, A, F0.16, A)') "- Number of particles = ", integrate( abs(Phi)**2 )
         write (*, '(1X, A, F0.16, A)') "- Chemical potential  = ", calc_mu(Phi, Pot, OMEGA_z)
         write (*, '(1X, A, F0.16, A)') "- Total energy        = ", sum( energies )
-        write (*, '(1X, A, F0.16, A)') "- <Lz>                = ", calc_Lz(Phi)
+        write (*, '(1X, 3(A, F0.16))') "- <L_i>               = ", L_new(1), ",", L_new(2), ",", L_new(3)
         write (*, *)
     endif
     ! ---------------------------------------------------------------------------------------------
@@ -191,14 +192,10 @@ program main
         open(120, file=RESULT_DIRECTORY // "energy_real.bin", form="unformatted")
     end if
 
-    Nc               = 0.001d0
-    Ic_              = ParticleN*25d0
-
-    Lz_old           = ParticleN*calc_Lz(Phi)
-    Lz_new           = Lz_old
+    L_old = L_new
+    L_new = calc_Lall(Phi)
 
     write (*, '(1X, A, F0.5)') "dΩ/dt = ", domega_dt
-    write (*, '(1X, A, F0.5)') "Ic    = ", Ic_
 
     ! Break z-symmetry
     do iz = 1, Nz
@@ -220,20 +217,23 @@ program main
         end if
 
         call evolve(Phi, Pot, OMEGA_z, .false.)
-        OMEGA_z = omega_real+domega_dt*time
+        OMEGA_z = omega_real + domega_dt*time
         OMEGA_z = OMEGA_z*RAND_RATE
+        
+        L_old  = L_new
+        L_new  = calc_Lall(Phi)
+
+        if ( feedback_exists ) then
+            OMEGA_z = OMEGA_z - (L_new - L_old)
+        end if
 
         if (mod(iter, iters_rtime_skip) == 0) then
-            !Lz_old  = Lz_new
-            !Lz_new  = ParticleN*calc_Lz(Phi)
-
-            L = calc_Lall(Phi)
 
             prob         = integrate( abs(Phi)**2 )
             energies     = calc_energies(Phi, Pot, OMEGA_z)
             totE         = sum( energies )
-            ! 1:ITER 2:TIME 3:TOTAL_ENERGY 4:PROBABILITY 5:KINETIC 6:POTENTIAL 7:NONLINEAR 8:ROTATION 9:OMEGA 10:Lz
-            ! plot "energy_real.bin" binary format="%*int%int%9double%*int" using 1:4 w l
+            ! 1:ITER 2:TIME 3:TOTAL_ENERGY 4:PROBABILITY 5:KINETIC 6:POTENTIAL 7:NONLINEAR 8:ROTATION 9:OMEGA 10:Lx 11:Ly 12:Lz
+            ! plot "energy_real.bin" binary format="%*int%int%11double%*int" using 1:4 w l
             OMEGA_avg = sum(OMEGA_z) / Nz
             write (120) iter, iter*dt_real, totE, prob, energies(1), energies(2), energies(3), energies(4),&
             OMEGA_avg, L(1), L(2), L(3)

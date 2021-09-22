@@ -27,3 +27,4 @@
 -1              # dynamically created sound wave (iteration; negative=disable)
 0.0 0.0 0.0     # dynamically created sound wave starting point (x, y, z)
 360 4           # dynamically created sound wave strength/delta (higher for smaller size)
+0               # feedback (1:enable, 0:disable)
