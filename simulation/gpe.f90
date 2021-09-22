@@ -224,7 +224,7 @@ program main
         L_new  = calc_Lall(Phi)
 
         if ( feedback_exists ) then
-            OMEGA_z = OMEGA_z - (L_new - L_old)
+            OMEGA_z = OMEGA_z - (L_new(3) - L_old(3))
         end if
 
         if (mod(iter, iters_rtime_skip) == 0) then
