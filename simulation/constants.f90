@@ -18,8 +18,7 @@ module constants
     double precision :: gamma
     integer          :: iters_rtime, iters_rtime_skip
     ! Cranking speed
-    double precision :: omega_imag, omega_real
-    double precision :: domega_dt
+    double precision :: omega_imag, omega_real_init
     double precision :: omega_noise
     ! Trap radius
     double precision :: R0, Vtrap
@@ -49,6 +48,9 @@ module constants
     double precision :: Vgrid, delta_grid
     ! feedback
     logical          :: feedback_exists
+    ! NS's property
+    double precision :: Nc
+    double precision :: Ic
 contains
     subroutine load_config(path)
         character(*),optional :: path
@@ -69,8 +71,7 @@ contains
         read (100, *) iters_rtime, iters_rtime_skip
         read (100, *) dummy; is_PC_enabled = tological(dummy)
         read (100, *) gamma
-        read (100, *) omega_imag, omega_real
-        read (100, *) domega_dt
+        read (100, *) omega_imag, omega_real_init
         read (100, *) omega_noise
         read (100, *) R0, Vtrap
         read (100, *) trap_type
@@ -89,6 +90,8 @@ contains
         read (100, *) x0_sound_dyn, y0_sound_dyn, z0_sound_dyn
         read (100, *) Vsound, delta_sound
         read (100, *) dummy; feedback_exists = tological(dummy)
+        read (100, *) Nc
+        read (100, *) Ic
 
         NL = Nx*Ny*Nz
         xmax = 0.5d0*(Nx-1)*dh
@@ -110,6 +113,8 @@ contains
             nlines = nlines + 1
         end do
         999 continue
+        close(400)
+        close(300)
     end subroutine
 
     logical function tological(value)

@@ -215,7 +215,7 @@ contains
         integer iret, nthreads_omp, nthreads_fftw
 
         ! FFTW THREADS ###############
-        nthreads_fftw = 1
+        nthreads_fftw = 3
         call dfftw_init_threads(iret)
         call dfftw_plan_with_nthreads(nthreads_fftw)
         ! OpenMP ####################

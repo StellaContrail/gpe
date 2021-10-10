@@ -25,6 +25,7 @@ program main
     double precision               :: prob
     double precision               :: OMEGA_avg
     double precision,allocatable   :: OMEGA_z(:), RAND_RATE(:)
+    double precision               :: dOMEGA_dt, OMEGA_t 
     logical                        :: is_conv
     double precision               :: time
     double precision               :: L_new(1:3), L_old(1:3)
@@ -120,7 +121,7 @@ program main
         ! E=mu*ParticleN is more strict convergence condition than mu itself.
         if ( abs(mu-mu_old)*ParticleN < 1d-8 .and. 3000 <= iter ) then
             if ( mpi_rank == 0 ) then
-                write (*, '(1X, A, I0, A, F0.10)') "solution converged at iter=", iter, ", ΔE=", abs(mu-mu_old)*ParticleN
+                write (*, '(1X, A, I0, A, F0.8)') "solution converged at iter=", iter, ", ΔE=", abs(mu-mu_old)*ParticleN
             end if
             is_conv = .true.
             iter_conv = iter
@@ -132,7 +133,7 @@ program main
             if ( mpi_rank == 0 ) then
                 ! plot "energy_imag.bin" binary format="%*int%int%2double%*int" using 1:3 w l
                 write(10) iter, iter*dt_imag, mu
-                write (*, '(1X, I7, A, F0.10)') iter, &
+                write (*, '(1X, I7, A, F0.8)') iter, &
                 &" iterations have passed, ΔE=", abs(mu-mu_old)*ParticleN
             endif
         end if
@@ -168,7 +169,7 @@ program main
 
     energies = calc_energies(Phi, Pot, OMEGA_z)
     if ( mpi_rank == 0 ) then
-        write (*, '(10(F0.16,1X))') energies
+        !write (*, '(10(F0.16,1X))') energies
     end if
 
     if ( .not. should_calc_real ) then
@@ -178,10 +179,10 @@ program main
     if ( mpi_rank == 0 ) then
         energies = calc_energies(Phi, Pot, OMEGA_z)
         L_new    = calc_Lall(Phi)
-        write (*, '(1X, A, F0.16, A)') "- Number of particles = ", integrate( abs(Phi)**2 )
-        write (*, '(1X, A, F0.16, A)') "- Chemical potential  = ", calc_mu(Phi, Pot, OMEGA_z)
-        write (*, '(1X, A, F0.16, A)') "- Total energy        = ", sum( energies )
-        write (*, '(1X, 3(A, F0.16))') "- <L_i>               = ", L_new(1), ",", L_new(2), ",", L_new(3)
+        write (*, '(1X, A, F0.2, A)') "- Number of particles = ", integrate( abs(Phi)**2 )
+        write (*, '(1X, A, F0.2, A)') "- Chemical potential  = ", calc_mu(Phi, Pot, OMEGA_z)
+        write (*, '(1X, A, F0.2, A)') "- Total energy        = ", sum( energies )
+        write (*, '(1X, 3(A, F0.2))') "- <L_i>               = ", L_new(1), ",", L_new(2), ",", L_new(3)
         write (*, *)
     endif
     ! ---------------------------------------------------------------------------------------------
@@ -195,13 +196,12 @@ program main
     L_old = L_new
     L_new = calc_Lall(Phi)
 
-    write (*, '(1X, A, F0.5)') "dΩ/dt = ", domega_dt
-
     ! Break z-symmetry
     do iz = 1, Nz
         RAND_RATE(iz) = 1d0 + omega_noise*rand()
     end do
-    OMEGA_z = omega_real * RAND_RATE
+    OMEGA_t = omega_real_init
+    OMEGA_z = OMEGA_t * RAND_RATE
 
     call cpu_time(t1)
     do iter = 0, iters_rtime
@@ -217,18 +217,25 @@ program main
         end if
 
         call evolve(Phi, Pot, OMEGA_z, .false.)
-        OMEGA_z = omega_real + domega_dt*time
-        OMEGA_z = OMEGA_z*RAND_RATE
         
-        L_old  = L_new
-        L_new  = calc_Lall(Phi)
-
+        dOMEGA_dt = - Nc / Ic
         if ( feedback_exists ) then
-            OMEGA_z = OMEGA_z - (L_new(3) - L_old(3))*ParticleN
+            L_old  = L_new
+            L_new  = calc_Lall(Phi)
+
+            if ( time >= 20 ) then
+                dOMEGA_dt = dOMEGA_dt - (L_new(3) - L_old(3)) / (dt_real * Ic)
+            end if
         end if
+        OMEGA_t = OMEGA_t + dOMEGA_dt * dt_real
+        OMEGA_z = OMEGA_t * RAND_RATE
 
         if (mod(iter, iters_rtime_skip) == 0) then
 
+            if ( .not. feedback_exists ) then
+                L_old  = L_new
+                L_new  = calc_Lall(Phi)
+            end if
             prob         = integrate( abs(Phi)**2 )
             energies     = calc_energies(Phi, Pot, OMEGA_z)
             totE         = sum( energies )
@@ -236,11 +243,11 @@ program main
             ! plot "energy_real.bin" binary format="%*int%int%11double%*int" using 1:4 w l
             OMEGA_avg = sum(OMEGA_z) / Nz
             write (120) iter, iter*dt_real, totE, prob, energies(1), energies(2), energies(3), energies(4),&
-            OMEGA_avg, L(1), L(2), L(3)
+            OMEGA_avg, L_new(1), L_new(2), L_new(3)
             write (*, '(1X,2(A,I0),10(A,F0.2))') &
             &"Iteration=", iter, "/", iters_rtime, " ( ", 100d0*iter/iters_rtime, "% )  E=",&
             !& totE, " N=", prob, " Ω=", OMEGA_avg, " Lz=", Lz_old/ParticleN
-            & totE, " N=", prob, " Ω=", OMEGA_avg, " Lx,Ly,Lz=", L(1), ",", L(2), ",", L(3)
+            & totE, " N=", prob, " Ω=", OMEGA_avg, " Lx,Ly,Lz=", L_new(1), ",", L_new(2), ",", L_new(3)
 
             if ( mpi_rank == 0 ) then
                 write (iter_str, '(I0)') iter / iters_rtime_skip
@@ -263,10 +270,10 @@ program main
 
     if ( mpi_rank == 0 ) then
         close(120)
-        write (*, '(1X, A, F0.10)') "- Number of particles = ", integrate( abs(Phi)**2 )
-        write (*, '(1X, A, F0.16)') "- Chemical potential  = ", calc_mu(Phi, Pot, OMEGA_z)
-        write (*, '(1X, A, F0.16)') "- Total energy        = ", calc_total_energy(Phi, Pot, OMEGA_z)
-        write (*, '(1X, A, F0.10)') "- <Lz>                = ", calc_Lz(Phi)
+        write (*, '(1X, A, F0.2)')    "- Number of particles = ", integrate( abs(Phi)**2 )
+        write (*, '(1X, A, F0.2)')    "- Chemical potential  = ", calc_mu(Phi, Pot, OMEGA_z)
+        write (*, '(1X, A, F0.2)')    "- Total energy        = ", calc_total_energy(Phi, Pot, OMEGA_z)
+        write (*, '(1X, 3(A, F0.2))') "- <L_i>               = ", L_new(1), ",", L_new(2), ",", L_new(3)
         write (*, *) "Saved data into: data_"//trim(UTC)
     end if
     write (*, *)

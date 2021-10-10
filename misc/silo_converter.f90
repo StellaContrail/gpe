@@ -44,7 +44,7 @@ program main
     write (*, '(1X,A)', advance='no') "Input filename?: "
     read (*, *) INPUT_FN_TEMP
     INPUT_FN  = trim(INPUT_FN_TEMP)
-    INPUT_DIR = "/home/contrail/research/simulation/"//INPUT_FN//"/latest/"
+    INPUT_DIR = "../simulation/"//INPUT_FN//"/latest/"
     !INPUT_DIR = "/home/contrail/results/3d/temporal/"//INPUT_FN//"/latest/"
 
     ! Read configuration from config.dat
