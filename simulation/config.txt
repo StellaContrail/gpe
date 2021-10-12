@@ -4,27 +4,28 @@
 0.2             # space step
 0.001 0.004     # time step in imaginary/real time development
 0.3             # density = x*density_new + (1-x)*density_old in imaginary time development
-0               # calculate real time development (1:enabled, 0:disabled)
+1               # calculate real time development (1:enabled, 0:disabled)
 37500 100       # max iterations / iterations to skip over when writing in real time development
 1               # predictor-corrector (1:enabled, 0:disabled)
-0.00            # dissipation parameter (typically 0~0.05)
-0.00 0.00       # cranking speed in imaginary/real time development
-0.000           # time derivative of cranking speed (dΩz/dt)
-0               # noise intensity of cranking speed (0~1)
+0.05            # dissipation parameter (typically 0~0.05)
+0.00 0.75       # cranking speed in imaginary/real time development
+0.00            # noise intensity of cranking speed (0~1, typically 0.01)
 8.5 200         # trap radius/strength
 0               # trap type (0:CYLINDER, 1:HO, 2:BULK, 3:SPHERE)
-1               # initial vortex (1:enabled, 0:disabled)
+0               # initial vortex (1:enabled, 0:disabled)
 -4.8 -4.8       # initial vortex position (x, y)
 -1              # initial vortex circulation
-1               # pinning site (1:enabled, 0:disabled)
+0               # pinning site (1:enabled, 0:disabled)
 -4.8 -4.8 0.0   # pinning site position (x, y, z)
 90 4            # pinning site strength/delta (higher for smaller in size)
-0               # pinning grid (1:enabled, 0:disabled) 
-9 90 4          # grid size (Odd number)/strength/delta
+1               # pinning grid (1:enabled, 0:disabled)
+9 16.6 4          # grid size (Odd number)/strength/delta
 -1              # dynamically created vortex (iteration; negative=disable)
 1.2 1.2         # dynamically created vortex position (x, y)
 -1              # dynamically created vortex circulation
 -1              # dynamically created sound wave (iteration; negative=disable)
 0.0 0.0 0.0     # dynamically created sound wave starting point (x, y, z)
 360 4           # dynamically created sound wave strength/delta (higher for smaller size)
-0               # feedback (1:enable, 0:disable)
+1               # feedback (1:enable, 0:disable)
+0.05            # external spin-down torque (positive for spin-down)
+10.0            # moment of inertia of the container
