@@ -1,8 +1,9 @@
 compiler=gfortran
-options=$(fftw) $(silo) -O0 -fmax-stack-var-size=0 -lm -I/usr/local/include $(check) 
+options=$(fftw) $(silo) -O0 -lm -I/usr/local/include $(check) 
 fftw=-lfftw3
 silo=-lsilo
 check=-g -fcheck=all -Wall -fbounds-check
+max_memory=-fmax-stack-var-size=0
 all:mathf.mod silo_converter.mod a.out
 
 mathf.mod mathf.o: mathf.f90
