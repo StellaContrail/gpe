@@ -1,5 +1,5 @@
 compiler=gfortran
-options=$(openmp_threads) -O3 -fmax-stack-var-size=0 -fbounds-check #-heap-arrays
+options=$(openmp_threads) -O3 -fbounds-check #-fmax-stack-var-size=0 #-heap-arrays
 check=-mkl=sequential -check all -warn all -gen_interfaces -fpe0 -ftrapuv -traceback -g
 ifort_check=-mkl=parallel -check all -warn all -gen_interfaces -fpe0 -ftrapuv -traceback -g
 gfortran_check=-Wall -fbounds-check -ffpe-trap=invalid,overflow -fbacktrace -g
