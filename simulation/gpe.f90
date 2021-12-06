@@ -17,10 +17,10 @@ program main
     ! VARIABLES
     complex(kind(0d0)),allocatable :: Phi(:), Phi_old(:)
     double precision  ,allocatable :: Pot(:)
-    double precision               :: mu, mu_old
+    double precision               :: mu
     double precision               :: t1, t2, calc_time
     integer                        :: iter, iter_conv
-    double precision               :: totE, totE_old, energies(1:4)
+    double precision               :: E, E_old, energies(1:4)
     double precision,allocatable   :: flux(:,:)
     double precision               :: prob
     double precision               :: OMEGA_avg
@@ -87,7 +87,7 @@ program main
     ! Set initial potential and wave function
     call initialize(Pot, Phi)
     call prepare_derivative
-    if ( grid_exists ) then
+    if ( grid_type /= 0 ) then
         call set_grid(Pot)
     end if
 
@@ -106,7 +106,7 @@ program main
         open(10, file=RESULT_DIRECTORY // "energy_imag.bin", form="unformatted", status="replace")
     end if
 
-    mu      = 100d0
+    E       = -128d0
     is_conv = .false.
 
     OMEGA_z = omega_imag
@@ -114,44 +114,37 @@ program main
     do iter = 1, 500000
         Phi_old = Phi
         call evolve(Phi, Pot, OMEGA_z, .true.)
-        mu_old = mu
-        mu     = integrate( conjg(Phi)*HPhi ) / ParticleN
-
-        ! IS CONVERGED?
-        ! E=mu*ParticleN is more strict convergence condition than mu itself.
-        if ( abs(mu-mu_old)*ParticleN < 1d-8 .and. 3000 <= iter ) then
+        E_old = E
+        E     = calc_total_energy(Phi, Pot, OMEGA_z)
+        ! PROGRESS
+        if (mod(iter, 1000) == 0) then
             if ( mpi_rank == 0 ) then
-                write (*, '(1X, A, I0, A, F0.8)') "solution converged at iter=", iter, ", ΔE=", abs(mu-mu_old)*ParticleN
+                mu = calc_mu(Phi, Pot, OMEGA_z)
+                ! plot "energy_imag.bin" binary format="%*int%int%3double%*int" using 1:3 w l
+                write(10) iter, iter*dt_imag, mu, E
+                write (*, '(1X, I7, A, F0.8)') iter, &
+                &" iterations have passed, ΔE=", abs(E-E_old)
+            endif
+        end if
+        ! IS CONVERGED?
+        if ( abs(E-E_old) < 1d-8 .and. 3000 <= iter ) then
+            if ( mpi_rank == 0 ) then
+                write (*, '(1X, A, I0, A, F0.8)') "solution converged at iter=", iter, ", ΔE=", abs(E-E_old)
             end if
             is_conv = .true.
             iter_conv = iter
             exit
         endif
-
-        ! PROGRESS
-        if (mod(iter, 1000) == 0) then
-            if ( mpi_rank == 0 ) then
-                ! plot "energy_imag.bin" binary format="%*int%int%2double%*int" using 1:3 w l
-                write(10) iter, iter*dt_imag, mu
-                write (*, '(1X, I7, A, F0.8)') iter, &
-                &" iterations have passed, ΔE=", abs(mu-mu_old)*ParticleN
-            endif
-        end if
-
         ! Mix densities
         density = (1d0 - alpha) * abs(Phi_old)**2 + alpha * abs(Phi)**2
     end do
     call cpu_time(t2)
     calc_time = t2 - t1
-    if ( mpi_rank == 0 ) then
-        write(10) iter, iter*dt_imag, mu
-        close(10)
-    end if
 
     ! WARNING
     if (is_conv .eqv. .false.) then
         if ( mpi_rank == 0 ) then
-            write (*, '(X, A, F15.10)') "solution not converged. ΔE=", abs(mu-mu_old)*ParticleN
+            write (*, '(X, A, F15.10)') "solution not converged. ΔE=", abs(E-E_old)
         endif
         iter_conv = 500000
     end if
@@ -167,12 +160,7 @@ program main
         close(60)
     end if
 
-    energies = calc_energies(Phi, Pot, OMEGA_z)
-    if ( mpi_rank == 0 ) then
-        !write (*, '(10(F0.16,1X))') energies
-    end if
-
-    if ( .not. should_calc_real ) then
+    if ( should_calc_real .eqv. .false. ) then
         goto 200
     end if
 
@@ -187,14 +175,12 @@ program main
     endif
     ! ---------------------------------------------------------------------------------------------
 
+
     ! REAL TIME DEVELOPMENT -----------------------------------------------------------------------
     if ( mpi_rank == 0 ) then
         write (*, *) "Real time evolution"
         open(120, file=RESULT_DIRECTORY // "energy_real.bin", form="unformatted")
     end if
-
-    L_old = L_new
-    L_new = calc_Lall(Phi)
 
     ! Break z-symmetry
     do iz = 1, Nz
@@ -218,36 +204,39 @@ program main
 
         call evolve(Phi, Pot, OMEGA_z, .false.)
         
-        dOMEGA_dt = - Nc / Ic
-        if ( feedback_exists ) then
+        if ( abs(Nc) > 0d0 .and. torque_iter > -1 .and. iter >= torque_iter ) then
+            dOMEGA_dt = - Nc / Ic
+        else
+            dOMEGA_dt = 0d0
+        end if
+
+        if ( feedback_iter > -1 ) then
             L_old  = L_new
             L_new  = calc_Lall(Phi)
 
-            if ( time >= 20 ) then
+            if ( iter >= feedback_iter ) then
                 dOMEGA_dt = dOMEGA_dt - (L_new(3) - L_old(3)) / (dt_real * Ic)
             end if
         end if
         OMEGA_t = OMEGA_t + dOMEGA_dt * dt_real
         OMEGA_z = OMEGA_t * RAND_RATE
 
-        if (mod(iter, iters_rtime_skip) == 0) then
-
-            if ( .not. feedback_exists ) then
+        if ( mod(iter, iters_rtime_skip) == 0 ) then
+            if ( feedback_iter < 0 ) then
                 L_old  = L_new
                 L_new  = calc_Lall(Phi)
             end if
-            prob         = integrate( abs(Phi)**2 )
-            energies     = calc_energies(Phi, Pot, OMEGA_z)
-            totE         = sum( energies )
+            prob     = integrate( abs(Phi)**2 )
+            energies = calc_energies(Phi, Pot, OMEGA_z)
+            E        = sum( energies )
             ! 1:ITER 2:TIME 3:TOTAL_ENERGY 4:PROBABILITY 5:KINETIC 6:POTENTIAL 7:NONLINEAR 8:ROTATION 9:OMEGA 10:Lx 11:Ly 12:Lz
             ! plot "energy_real.bin" binary format="%*int%int%11double%*int" using 1:4 w l
             OMEGA_avg = sum(OMEGA_z) / Nz
-            write (120) iter, iter*dt_real, totE, prob, energies(1), energies(2), energies(3), energies(4),&
+            write (120) iter, iter*dt_real, E, prob, energies(1), energies(2), energies(3), energies(4),&
             OMEGA_avg, L_new(1), L_new(2), L_new(3)
             write (*, '(1X,2(A,I0),10(A,F0.2))') &
             &"Iteration=", iter, "/", iters_rtime, " ( ", 100d0*iter/iters_rtime, "% )  E=",&
-            !& totE, " N=", prob, " Ω=", OMEGA_avg, " Lz=", Lz_old/ParticleN
-            & totE, " N=", prob, " Ω=", OMEGA_avg, " Lx,Ly,Lz=", L_new(1), ",", L_new(2), ",", L_new(3)
+            & E, " N=", prob, " Ω=", OMEGA_avg, " Lx,Ly,Lz=", L_new(1), ",", L_new(2), ",", L_new(3)
 
             if ( mpi_rank == 0 ) then
                 write (iter_str, '(I0)') iter / iters_rtime_skip
@@ -266,10 +255,11 @@ program main
     write (*, '(1X, A, 3(I0, A))') "calculation took ", &
     &int( calc_time / 3600 ), " h ", int( mod(calc_time, 3600d0) / 60 ), " m ", int( mod(calc_time, 60d0) ), " s"
 
-200 continue
-
+    200 continue
     if ( mpi_rank == 0 ) then
         close(120)
+        energies = calc_energies(Phi, Pot, OMEGA_z)
+        L_new    = calc_Lall(Phi)
         write (*, '(1X, A, F0.2)')    "- Number of particles = ", integrate( abs(Phi)**2 )
         write (*, '(1X, A, F0.2)')    "- Chemical potential  = ", calc_mu(Phi, Pot, OMEGA_z)
         write (*, '(1X, A, F0.2)')    "- Total energy        = ", calc_total_energy(Phi, Pot, OMEGA_z)

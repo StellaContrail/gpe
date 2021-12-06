@@ -120,12 +120,12 @@ contains
             ! IMAGINARY TIME EVOLUTION ------------------------------------------------------
             ! First term of Taylor expansion
             ztemp = old_phi
-            Phi = old_phi
+            Phi   = old_phi
             ! Other terms of Taylor expansion
             do iter = 1, 1
                 call H(ztemp, abs(old_phi)**2, Pot, OMEGA_z)
-                ztemp     = - HPhi * dt_imag / iter
-                Phi = Phi + ztemp
+                ztemp = - HPhi * dt_imag / iter
+                Phi   = Phi + ztemp
             end do
             call normalize(Phi)
         else
@@ -166,12 +166,13 @@ contains
         double precision,intent(in)    :: Pot(1:NL)
         double precision,intent(in)    :: OMEGA_z(1:Nz)
 
-        ! [Phi]* H[Phi] = <H>
+        ! <Phi|H|Phi> = <H>
+        ! Chemical potential and Total energy per particle are different.
         call H(Phi, abs(Phi)**2, Pot, OMEGA_z)
         calc_mu = integrate( conjg(Phi) * HPhi ) / integrate( abs(Phi)**2 )
     end function
 
-    ! H(ρ,V,Ω)|Psi>
+    ! H(ρ,V,Ω)|Phi>
     subroutine H(Phi, density_, Pot, OMEGA_z)
         complex(kind(0d0)),intent(in)  :: Phi(1:NL)
         double precision,intent(in)    :: Pot(1:NL)

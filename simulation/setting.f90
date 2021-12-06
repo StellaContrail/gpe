@@ -10,11 +10,7 @@ contains
         double precision,intent(out)             :: Pot(1:NL)
         double precision                         :: x, y, z
         integer                                  :: ix, iy, iz, i
-
-        ! initialize wavefunction
-        if (present(Phi)) then
-            Phi = 1d0
-        end if
+        double precision                         :: n0, xi
 
         ! dimension
         DIM = 1
@@ -28,6 +24,14 @@ contains
             DIM = DIM + 1
         end if
         dV = dh**DIM
+        
+        ! external potential
+        call set_potential(Pot)
+
+        ! saturation density
+        n0 = sqrt( ParticleN / xmax**DIM )
+        ! approximated healing length
+        xi = 1 / sqrt(2d0*n0)
 
         ! initial wavefunction
         i = 0
@@ -44,25 +48,19 @@ contains
                     i2iz(i) = iz
                     ixyz2i(ix, iy, iz) = i
 
-                    if (present(Phi)) then
-                        if (x**2 + y**2 < R0**2 .or. TRAP_TYPE == 2) then
-                            if ( vortex_exists ) then
-                                Phi(i) = Phi(i) + tanh( sqrt( (x-x0_vortex)**2 + (y-y0_vortex)**2) ) - 1d0
+                    if ( present(Phi) ) then
+                        Phi(i) = n0 * (1d0 - Pot(i)/(0.5d0*Vtrap))
+                        if ( vortex_exists ) then
+                            if ( (x-x0_vortex)**2+(y-y0_vortex)**2 < xi**2 ) then
+                                Phi(i) = 0d0
                             end if
-                            if ( pin_exists ) then
-                                Phi(i) = Phi(i) + &
-                                tanh( sqrt( (x-x0_pin)**2 + (y-y0_pin)**2) ) - 1d0
-                            end if
-                        else
-                            Phi(i) = Phi(i) - 1d0
                         end if
                     end if
+
                 end do
             end do
         end do
 
-        ! set potential: trap + pinning sites
-        call set_potential(Pot)
         call normalize(Phi)
     end subroutine initialize
 
@@ -95,6 +93,11 @@ contains
         integer                         :: i
         stop "still in development"
         
+        ! memo:
+        ! - load binary file with specified condition
+        ! - if any error happens such as compatibility issues, stop the calculation
+        ! - whether the calculation is successful or not, output status text
+
         ! Load wavefunction
         open(500, file=path//"wf_imag_raw.bin", status="old", form="unformatted")
         read (500) Phi
@@ -116,17 +119,22 @@ contains
         double precision,intent(in) :: x, y, z
         double precision            :: V, r
         
-        if ( TRAP_TYPE == 0 ) then
+        if ( TRAP_TYPE == 0 ) then ! cylinder
             r = sqrt(x**2 + y**2)
             V = Vtrap * ( 1d0 + tanh(2d0 * (r-R0)) )
-        else if ( TRAP_TYPE == 1 ) then
+        else if ( TRAP_TYPE == 1 ) then ! HO
             r = sqrt(x**2 + y**2)
             V = r**2 * Vtrap / R0**2
-        else if ( TRAP_TYPE == 2 ) then
+        else if ( TRAP_TYPE == 2 ) then ! bulk
             V = 0d0
-        else if ( TRAP_TYPE == 3 ) then
+        else if ( TRAP_TYPE == 3 ) then ! sphere
             r = sqrt(x**2 + y**2 + z**2)
             V = Vtrap * ( 1d0 + tanh(2d0 * (r-R0)) )
+        end if
+
+        if ( core_radius_ratio > 0.0 ) then   ! hole/core
+            r = sqrt(x**2 + y**2 + z**2)
+            V = V + Vtrap * ( 1d0 - tanh(2d0 * (r-R0*core_radius_ratio)) )
         end if
     end function
 
@@ -163,7 +171,7 @@ contains
         double precision            :: d(3)
         integer                     :: hindex(3)
         ! MxM lattice (Ngrid:odd)
-        ! To keep the symmetry along z-axis,
+        ! To keep the boundary condition valid along the z-axis,
         ! we need to set d so that mod(z,d)=0 satisfies.
         hindex = 0
         if ( Nx > 1 ) then
@@ -177,6 +185,12 @@ contains
         if ( Nz > 1 ) then
             hindex(3) = int(0.5d0*(Ngrid-1))
             d(3)      = Nz*dh/(Ngrid-1)
+        end if
+        if ( d_grid > 0 ) then
+            if ( Nz > 1 .and. d(3) /= d_grid ) then
+                write (*, *) "[WARNING] The specified lattice configuration isn't likely to satisfy the boundary condition."
+            end if
+            d = d_grid
         end if
         write (*, '(1X,A,3(F7.3,1X))') "lattice d=", d
 
@@ -192,5 +206,20 @@ contains
                 end do
             end do
         end do
+
+        ! BCC lattice
+        if ( grid_type == 2 ) then
+            do iz0 = -hindex(3), hindex(3)-1
+                z0 = iz0 * d(3) + 0.5d0*d(3)
+                do iy0 = -hindex(2), hindex(2)-1
+                    y0 = iy0 * d(2) + 0.5d0*d(2)
+                    do ix0 = -hindex(1), hindex(1)-1
+                        x0 = ix0 * d(1) + 0.5d0*d(1)
+
+                        call set_pin(Pot, x0, y0, z0, Vgrid, delta_grid)
+                    end do
+                end do
+            end do
+        end if
     end subroutine
 end module

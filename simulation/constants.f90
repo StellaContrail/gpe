@@ -23,6 +23,7 @@ module constants
     ! Trap radius
     double precision :: R0, Vtrap
     integer          :: trap_type
+    double precision :: core_radius_ratio
 
     ! box size in length
     double precision :: xmax, ymax, zmax
@@ -43,14 +44,15 @@ module constants
     double precision :: x0_pin, y0_pin, z0_pin
     double precision :: Vpin, delta_pin
     ! pinning grid
-    logical          :: grid_exists
+    integer          :: grid_type
     integer          :: Ngrid
-    double precision :: Vgrid, delta_grid
+    double precision :: Vgrid, delta_grid, d_grid
     ! feedback
-    logical          :: feedback_exists
+    integer          :: feedback_iter
     ! NS's property
     double precision :: Nc
     double precision :: Ic
+    integer          :: torque_iter
 contains
     subroutine load_config(path)
         character(*),optional :: path
@@ -75,13 +77,15 @@ contains
         read (100, *) omega_noise
         read (100, *) R0, Vtrap
         read (100, *) trap_type
+        read (100, *) core_radius_ratio
         read (100, *) dummy; vortex_exists = tological(dummy)
         read (100, *) x0_vortex, y0_vortex
         read (100, *) vortex_kappa
         read (100, *) dummy; pin_exists = tological(dummy)
         read (100, *) x0_pin, y0_pin, z0_pin
         read (100, *) Vpin, delta_pin
-        read (100, *) dummy; grid_exists = tological(dummy)
+        read (100, *) grid_type
+        read (100, *) d_grid
         read (100, *) Ngrid, Vgrid, delta_grid
         read (100, *) vortex_dyn_iter
         read (100, *) x0_vortex_dyn, y0_vortex_dyn
@@ -89,9 +93,10 @@ contains
         read (100, *) sound_dyn_iter
         read (100, *) x0_sound_dyn, y0_sound_dyn, z0_sound_dyn
         read (100, *) Vsound, delta_sound
-        read (100, *) dummy; feedback_exists = tological(dummy)
+        read (100, *) feedback_iter
         read (100, *) Nc
         read (100, *) Ic
+        read (100, *) torque_iter
 
         NL = Nx*Ny*Nz
         xmax = 0.5d0*(Nx-1)*dh
