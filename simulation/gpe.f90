@@ -17,7 +17,7 @@ program main
     ! VARIABLES
     complex(kind(0d0)),allocatable :: Phi(:), Phi_old(:)
     double precision  ,allocatable :: Pot(:)
-    double precision               :: mu
+    double precision               :: mu, mu_old
     double precision               :: t1, t2, calc_time
     integer                        :: iter, iter_conv
     double precision               :: E, E_old, energies(1:4)
@@ -107,34 +107,38 @@ program main
     end if
 
     E       = -128d0
+    mu      = -128d0
     is_conv = .false.
-
+    density = abs(Phi)**2
     OMEGA_z = omega_imag
+
     call cpu_time(t1)
     do iter = 1, 500000
         Phi_old = Phi
         call evolve(Phi, Pot, OMEGA_z, .true.)
-        E_old = E
-        E     = calc_total_energy(Phi, Pot, OMEGA_z)
+        mu_old = mu
+        mu     = calc_mu(Phi, Pot, OMEGA_z)
         ! PROGRESS
-        if (mod(iter, 1000) == 0) then
+        if (mod(iter, 1000) == 0 .or. iter == 1) then
             if ( mpi_rank == 0 ) then
-                mu = calc_mu(Phi, Pot, OMEGA_z)
                 ! plot "energy_imag.bin" binary format="%*int%int%3double%*int" using 1:3 w l
+                E = calc_total_energy(Phi, Pot, OMEGA_z)
                 write(10) iter, iter*dt_imag, mu, E
                 write (*, '(1X, I7, A, F0.8)') iter, &
-                &" iterations have passed, ΔE=", abs(E-E_old)
+                &" iterations have passed, Δmu=", abs(mu-mu_old)
             endif
         end if
+
         ! IS CONVERGED?
-        if ( abs(E-E_old) < 1d-8 .and. 3000 <= iter ) then
+        if ( abs(mu-mu_old) < 1d-8 .and. 3000 <= iter ) then
             if ( mpi_rank == 0 ) then
-                write (*, '(1X, A, I0, A, F0.8)') "solution converged at iter=", iter, ", ΔE=", abs(E-E_old)
+                write (*, '(1X, A, I0, A, F0.8)') "solution converged at iter=", iter, ", Δmu=", abs(mu-mu_old)
             end if
             is_conv = .true.
             iter_conv = iter
             exit
         endif
+
         ! Mix densities
         density = (1d0 - alpha) * abs(Phi_old)**2 + alpha * abs(Phi)**2
     end do
@@ -144,7 +148,7 @@ program main
     ! WARNING
     if (is_conv .eqv. .false.) then
         if ( mpi_rank == 0 ) then
-            write (*, '(X, A, F15.10)') "solution not converged. ΔE=", abs(E-E_old)
+            write (*, '(X, A, F15.10)') "solution not converged. Δmu=", abs(mu-mu_old)
         endif
         iter_conv = 500000
     end if

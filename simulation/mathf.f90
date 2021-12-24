@@ -123,7 +123,7 @@ contains
             Phi   = old_phi
             ! Other terms of Taylor expansion
             do iter = 1, 1
-                call H(ztemp, abs(old_phi)**2, Pot, OMEGA_z)
+                call H(ztemp, density, Pot, OMEGA_z)
                 ztemp = - HPhi * dt_imag / iter
                 Phi   = Phi + ztemp
             end do
@@ -132,6 +132,7 @@ contains
             ! REAL TIME EVOLUTION -----------------------------------------------------------
             mu = calc_mu(old_phi, Pot, OMEGA_z)
             
+            ! PC = Predictor-Corrector
             if ( is_PC_enabled ) then
                 ! First term of Taylor expansion
                 ztemp = old_phi
