@@ -25,6 +25,24 @@ contains
         end if
         dV = dh**DIM
         
+        ! calculate index
+        i = 0
+        do iz = 1, Nz
+            z = zpos(iz)
+            do iy = 1, Ny
+                y = ypos(iy)
+                do ix = 1, Nx
+                    x = xpos(ix)
+                    i = i + 1
+
+                    i2ix(i) = ix
+                    i2iy(i) = iy
+                    i2iz(i) = iz
+                    ixyz2i(ix, iy, iz) = i
+                end do
+            end do
+        end do
+
         ! external potential
         call set_potential(Pot)
 
@@ -42,11 +60,6 @@ contains
                 do ix = 1, Nx
                     x = xpos(ix)
                     i = i + 1
-
-                    i2ix(i) = ix
-                    i2iy(i) = iy
-                    i2iz(i) = iz
-                    ixyz2i(ix, iy, iz) = i
 
                     if ( present(Phi) ) then
                         Phi(i) = n0 * (1d0 - Pot(i)/(0.5d0*Vtrap))
@@ -68,6 +81,8 @@ contains
         double precision,intent(out) :: Pot(1:NL)
         double precision :: x, y, z
         integer :: i
+
+        write (*, *) "R0=", R0
 
         do i = 1, NL
             x = xpos(i2ix(i))
