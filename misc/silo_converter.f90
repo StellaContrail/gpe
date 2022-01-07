@@ -119,6 +119,8 @@ program main
         DB_DOUBLE, DB_COLLINEAR, optlistid, status)
         ierr = dbputqv1(dbfile, "density", 7, "mesh", 4, density, dims, 3, DB_F77NULL, 0,&
         DB_DOUBLE, DB_NODECENT, optlistid, status)
+        ierr = dbputqv1(dbfile, "potential", 9, "mesh", 4, V, dims, 3, DB_F77NULL, 0,&
+        DB_DOUBLE, DB_NODECENT, optlistid, status)
         ierr = dbputqv1(dbfile, "phase", 5, "mesh", 4, atan2(aimag(Phi), dreal(Phi)), dims, 3, DB_F77NULL, 0,&
         DB_DOUBLE, DB_NODECENT, optlistid, status)
 
