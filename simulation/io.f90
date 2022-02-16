@@ -1,3 +1,6 @@
+!! @file io.f90
+!! @brief This module contains file I/O procedures.
+
 ! I/O Procedures
 module io
     use constants
@@ -5,6 +8,9 @@ module io
     implicit none
 contains
     ! Save double precision complex wave function
+    !> 複素数配列データをbinaryで出力する
+    !! @param[in] filename ファイル名/相対パス
+    !! @param[in] f 配列データ
     subroutine output_complex(filename, f)
         complex(kind(0d0)),intent(in) :: f(1:NL)
         character(*),intent(in)       :: filename
@@ -36,6 +42,9 @@ contains
         end do
         close(10)
     end subroutine output_complex
+    !> 複素数配列データをbinaryで出力する
+    !! @param[in] unit ユニット番号
+    !! @param[in] f 配列データ
     subroutine output_complex_unit(unit, f)
         complex(kind(0d0)),intent(in) :: f(1:NL)
         integer,intent(in)            :: unit
@@ -56,6 +65,9 @@ contains
     end subroutine output_complex_unit
 
     ! Save double precision real wave function
+    !> 実数配列データをbinaryで出力する
+    !! @param[in] filename ファイル名/相対パス
+    !! @param[in] f 配列データ
     subroutine output_real(filename, f)
         double precision,intent(in)   :: f(1:NL)
         character(*),intent(in)       :: filename
@@ -77,6 +89,9 @@ contains
         end do
         close(11)
     end subroutine output_real
+    !> 実数配列データをbinaryで出力する
+    !! @param[in] unit ユニット番号
+    !! @param[in] f 配列データ
     subroutine output_real_unit(unit, f)
         double precision,intent(in)   :: f(1:NL)
         integer,intent(in)            :: unit
@@ -98,6 +113,9 @@ contains
     end subroutine output_real_unit
 
     ! Save potential
+    !> 外場ポテンシャルをbinaryで出力する
+    !! @param[in] filename ファイル名/相対パス
+    !! @param[in] Pot 外場ポテンシャル
     subroutine output_potential(filename, Pot)
         double precision,intent(in)   :: Pot(1:NL)
         character(*),intent(in)       :: filename
@@ -119,6 +137,9 @@ contains
         end do
         close(11)
     end subroutine
+    !> 外場ポテンシャルをbinaryで出力する
+    !! @param[in] unit ユニット番号
+    !! @param[in] Pot 外場ポテンシャル
     subroutine output_potential_unit(unit, Pot)
         double precision,intent(in)   :: Pot(1:NL)
         integer,intent(in)            :: unit
@@ -139,6 +160,9 @@ contains
     end subroutine
     
     ! Save probability current
+    !> 確率流密度をbinaryで出力する
+    !! @param[in] filename ファイル名/相対パス
+    !! @param[in] Flux 確率流密度を格納している配列
     subroutine output_flux(filename, Flux)
         double precision,intent(in) :: Flux(1:NL, 1:3)
         character(*),intent(in)     :: filename
@@ -160,6 +184,9 @@ contains
 
         close(12)
     end subroutine
+    !> 確率流密度をbinaryで出力する
+    !! @param[in] unit ユニット番号
+    !! @param[in] Flux 確率流密度を格納している配列
     subroutine output_flux_unit(unit, Flux)
         double precision,intent(in) :: Flux(1:NL, 1:3)
         integer,intent(in)          :: unit

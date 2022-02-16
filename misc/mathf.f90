@@ -1,3 +1,6 @@
+!! @file silo_converter.f90
+!! @brief This module contains mathematical procedures for the program.
+
 module mathf
     use,intrinsic :: iso_c_binding
     implicit none
@@ -8,20 +11,57 @@ module mathf
     double precision,allocatable,private    :: Kx(:), Ky(:), Kz(:), K(:,:), K2(:)
     complex(kind(0d0)),pointer,private      :: fx(:), Fk(:)
     complex(kind(0d0)),pointer,private      :: gx(:), Gk(:)
-    type(C_PTR)                             :: pfx, pFk
-    type(C_PTR)                             :: pgx, pGk
+    
+    !> FFTWで用いる\f$ f(x) \f$に対するポインタ
+    type(C_PTR)                             :: pfx
+    !> FFTWで用いる\f$ F(k) \f$に対するポインタ
+    type(C_PTR)                             :: pFk
+    !> FFTWで用いる\f$ g(x) \f$に対するポインタ
+    type(C_PTR)                             :: pgx
+    !> FFTWで用いる\f$ G(k) \f$に対するポインタ
+    type(C_PTR)                             :: pGk
 
     ! CONSTANTS
-    integer                                 :: Nx, Ny, Nz, NL
-    complex(kind(0d0)),parameter            :: iu = (0d0,1d0)
-    double precision,parameter              :: PI = acos(-1d0)
-    double precision                        :: dh, dV
+    !> x軸方向の次元
+    integer          :: Nx
+    !> y軸方向の次元
+    integer          :: Ny
+    !> z軸方向の次元
+    integer          :: Nz
+    !> \f$ NL^2=N_x^2+N_y^2+N_z^2 \f$
+    integer          :: NL
+    
+    !> 円周率
+    double precision,  parameter :: pi   = acos(-1d0)  ! PI
+    !> 虚数単位
+    complex(kind(0d0)),parameter :: iu   = (0d0, 1d0)  ! Imaginary unit
+    
+    !> 空間の刻み幅
+    double precision :: dh
+    !> 空間の微小体積を格納する変数
+    !! @details 1次元のときはdV=dh, 2次元のときはdV=dh^2, 3次元のときはdV=dh^3となる
+    double precision                        :: dV          = 0d0
 
     ! MISC
-    integer,allocatable                     :: i2ix(:), i2iy(:), i2iz(:), ixyz2i(:,:,:)
-    integer,parameter                       :: Nd = 3
+    !> 全体のインデックス\f$ i \f$からx軸のインデックス\f$ ix \f$に射影する配列
+    integer,allocatable                     :: i2ix(:)
+    !> 全体のインデックス\f$ i \f$からy軸のインデックス\f$ iy \f$に射影する配列
+    integer,allocatable                     :: i2iy(:)
+    !> 全体のインデックス\f$ i \f$からz軸のインデックス\f$ iz \f$に射影する配列
+    integer,allocatable                     :: i2iz(:)
+    !> それぞれの軸のインデックス\f$ (ix,iy,iz) \f$から全体のインデックス\f$ i \f$に射影する配列
+    integer,allocatable                     :: ixyz2i(:, :, :)
+    
+    !> FDM(有限差分法)の精度を指定する
+    !! @details 係数は\f$ (2 \times N_d + 1) \f$個分使う
+    integer,parameter,private               :: Nd = 3 
+    !> FDM(有限差分法)の係数を格納する変数
     double precision,allocatable            :: C1(:)
 contains
+    !> 初期化するための関数
+    !! @details FFTWやFDM、座標インデックスなどの初期化を行う
+    !! @param[in] dims 空間次元
+    !! @param[in] step 空間の刻み幅
     subroutine initialize_mathf(dims, step)
         integer,intent(in)  :: dims(3)
         double precision    :: step
@@ -61,11 +101,15 @@ contains
         end do
     end subroutine
 
+    !> プログラムで割り当てたメモリを開放する
     subroutine deallocate_mathf()
         deallocate( i2ix, i2iy, i2iz )
         call destroy_fftw()
     end subroutine
 
+    !> FFTW計算のValidityを検証する
+    !! @details デバッグ用
+    !! @param[in] xpos x軸の座標データ
     subroutine check_validity(xpos)
         complex(kind(0d0)) :: f(1:NL), g(1:NL), h(1:NL), zgrad(1:NL,1:3), zlap(1:NL)
         integer            :: i
@@ -84,6 +128,9 @@ contains
         write (*, '(X,A,F0.5,X,F0.5)') "Validity: (0,0)?=", sum( zlap-h )
     end subroutine
 
+    !> 運動量を計算して速度場を求める
+    !! @param[in] Phi 波動関数
+    !! @param[out] V 速度場
     subroutine velocity_field(Phi, V)
         complex(kind(0d0)),intent(in) :: Phi(1:NL)
         complex(kind(0d0))            :: temp(1:NL), zgrad(1:NL,1:3)
@@ -98,6 +145,9 @@ contains
         V = -iu*zgrad
     end subroutine
 
+    !> 確率流密度(速度場)を計算する
+    !! @param[in] Phi 波動関数
+    !! @param[out] J 確率流密度
     subroutine probability_current(Phi, J)
         complex(kind(0d0)),intent(in) :: Phi(1:NL)
         complex(kind(0d0))            :: temp(1:NL), zgrad(1:NL,1:3)
@@ -115,6 +165,9 @@ contains
     end subroutine
 
     ! Need to fix
+    !> 速度場から回転を計算する
+    !! @param[in] V 速度場
+    !! @return R 回転
     function curl_fourier(V) result(R)
         double precision,intent(in)   :: V(1:NL,3)
         complex(kind(0d0))            :: VK(1:NL,3)
@@ -135,6 +188,9 @@ contains
         end do
     end function
 
+    !> FDMを用いて\f$ dF/dX \f$を計算する
+    !! @param[in] F 実数配列
+    !! @return G 計算結果
     function dF_dX_REAL(F) result(G)
         double precision,intent(in) :: F(1:NL)
         double precision            :: G(1:NL)
@@ -161,6 +217,9 @@ contains
         end do
     end function
 
+    !> FDMを用いて\f$ dF/dY \f$を計算する
+    !! @param[in] F 実数配列
+    !! @return G 計算結果
     function dF_dY_REAL(F) result(G)
         double precision,intent(in) :: F(1:NL)
         double precision            :: G(1:NL)
@@ -187,6 +246,9 @@ contains
         end do
     end function
 
+    !> FDMを用いて\f$ dF/dZ \f$を計算する
+    !! @param[in] F 実数配列
+    !! @return G 計算結果
     function dF_dZ_REAL(F) result(G)
         double precision,intent(in) :: F(1:NL)
         double precision            :: G(1:NL)
@@ -214,6 +276,9 @@ contains
     end function
     ! ---------------------------------------------------------------
 
+    !> FDMを用いて回転を計算する
+    !! @param[in] F 実数配列
+    !! @return R 計算結果
     function curl_fdm(F) result (R)
         double precision,intent(in)  :: F(1:NL,3)
         double precision             :: R(1:NL,3)
@@ -223,6 +288,9 @@ contains
         R(:,3) = dF_dX_REAL( F(:,2) ) - dF_dY_REAL( F(:,1) )
     end function
 
+    !> 運動エネルギーの分布を計算する
+    !! @param[in] Phi 波動関数
+    !! @param[out] T 運動エネルギー
     subroutine kinetic_energy(Phi, T)
         complex(kind(0d0)),intent(in) :: Phi(1:NL)
         complex(kind(0d0))            :: temp(1:NL), T(1:NL), zlap(1:NL)
@@ -237,6 +305,9 @@ contains
     end subroutine
 
     ! FFTW Gradient
+    !> FFTWを用いた勾配の計算
+    !! @param[in] F 複素数配列
+    !! @return 計算結果
     function gradient_fftw(F) result(G)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         complex(kind(0d0))            :: G(1:NL,1:3)
@@ -247,6 +318,9 @@ contains
     end function
 
     ! FFTW Laplacian
+    !> FFTWを用いたラプラシアンの計算
+    !! @param[in] F 複素数配列
+    !! @return 計算結果
     function laplacian_fftw(F) result(G)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         complex(kind(0d0))            :: G(1:NL)
@@ -254,6 +328,9 @@ contains
     end function
 
     ! FFTW Transform
+    !> FFTWによる高速フーリエ変換
+    !! @param[in] in 対象となる配列
+    !! @return 変換結果
     function transform_fftw(in) result(out)
         complex(kind(0d0)),intent(in) :: in(1:NL)
         complex(kind(0d0))            :: out(1:NL)
@@ -261,6 +338,9 @@ contains
     end function
 
     ! FFTW Backward Transform
+    !> FFTWによる高速フーリエ逆変換
+    !! @param[in] in 対象となる配列
+    !! @return 変換結果
     function revert_fftw(in) result(out)
         complex(kind(0d0)),intent(in) :: in(1:NL)
         complex(kind(0d0))            :: out(1:NL)
@@ -269,6 +349,8 @@ contains
     end function
 
     ! FFTW Instantiate
+    !> FFTWの初期化
+    !! @details FFTWを用いる操作（微分計算）を行う前に一度は実行しなければならない
     subroutine new_fftw()
         integer             :: ix, iy, iz, i
         ! This way calculation runs 1.43x times faster
@@ -302,6 +384,9 @@ contains
     end subroutine
 
     ! FFTW Wavenumbers
+    !> FFTWで用いる波数ベクトルを初期化する
+    !! @param[in] N 波数ベクトルの次元
+    !! @return K_ 波数ベクトル
     function create_wavenumber(N) result(K_)
         integer,intent(in)  :: N
         double precision    :: K_(1:N)
@@ -323,6 +408,7 @@ contains
     end function
 
     ! Destroy FFTW Instances
+    !> FFTWで確保したメモリを開放する
     subroutine destroy_fftw()
         call dfftw_destroy_plan( plan_f )
         call dfftw_destroy_plan( plan_b )

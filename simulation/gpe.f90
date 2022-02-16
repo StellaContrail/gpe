@@ -1,3 +1,6 @@
+!! @file gpe.f90
+!! @brief This module contains main procedures for the program.
+
 !============================================!
 !                                            !
 !            Glitching simulation            !
@@ -7,6 +10,8 @@
 !                                            !
 !============================================!
 
+!> プログラムのメインコード
+!! @details 前半がプログラムの初期化と虚時間発展、後半で実時間発展を計算する
 program main
     use constants
     use mathf
@@ -87,9 +92,6 @@ program main
     ! Set initial potential and wave function
     call initialize(Pot, Phi)
     call prepare_derivative
-    if ( grid_type /= 0 ) then
-        call set_grid(Pot)
-    end if
 
     ! CREATE VORTEX
     if ( vortex_exists ) then
@@ -104,6 +106,7 @@ program main
     ! FILE I/O
     if ( mpi_rank == 0 ) then
         open(10, file=RESULT_DIRECTORY // "energy_imag.bin", form="unformatted", status="replace")
+        call output_complex(RESULT_DIRECTORY // "wf_trial.bin", Phi)
     end if
 
     E       = -128d0
@@ -193,6 +196,9 @@ program main
     OMEGA_t = omega_real_init
     OMEGA_z = OMEGA_t * RAND_RATE
 
+    is_conv = .false.
+    E = sum( energies )
+
     call cpu_time(t1)
     do iter = 0, iters_rtime
         time = iter * dt_real
@@ -207,6 +213,17 @@ program main
         end if
 
         call evolve(Phi, Pot, OMEGA_z, .false.)
+
+        ! カッコを付けないと "(abs(E-E_old) <= 10d-5 .and. is_conv) .eqv. .false." という条件式になるので注意
+        ! abs(E-E_old)/E <= 10d-5 という収束条件は弱い
+        !if ( iter >= 5000 .and. abs(E-E_old)/E <= 10d-5 .and. (is_conv .eqv. .false.) ) then
+        !    torque_iter = iter
+        !    feedback_iter = iter
+        !    call set_grid(Pot, -16.6d0)
+        !    call set_grid(Pot, Vgrid)
+        !    is_conv = .true.
+        !    write (*, *) "Feedback/Torque turned on at iter=", iter
+        !end if
         
         if ( abs(Nc) > 0d0 .and. torque_iter > -1 .and. iter >= torque_iter ) then
             dOMEGA_dt = - Nc / Ic

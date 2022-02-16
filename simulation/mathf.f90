@@ -1,3 +1,6 @@
+!! @file mathf.f90
+!! @brief This module contains mathematical procedures used in the program.
+
 ! Mathematical Procedures
 module mathf
     use,intrinsic :: iso_c_binding
@@ -6,50 +9,117 @@ module mathf
     include 'fftw3.f03'
 
     ! Integration
+    !> 任意の関数に対して積分を計算する
     interface integrate
         module procedure integrate_real, integrate_complex
     end interface
     ! Get Phase Distribution
+    !> 任意の値、または配列に対して位相を計算する
     interface phase
         module procedure phase_coordinates, phase_complex
     end interface
 
     ! FDM
-    integer,parameter,private               :: Nd = 3
+    !> FDM(有限差分法)の精度を指定する
+    !! @details 係数は\f$ (2 \times N_d + 1) \f$個分使う
+    integer,parameter,private               :: Nd = 3 
+    !> FDM(有限差分法)の係数を格納する変数
     double precision,allocatable,private    :: C1(:), C2(:)
     ! FTTW
+    !> FFTWで用いる内部変数
     type(C_PTR),private                     :: plan_f, plan_b
+    !> FFTWで用いる\f$ f(x) \f$に対するポインタ
+    type(C_PTR)                             :: pfx
+    !> FFTWで用いる\f$ F(k) \f$に対するポインタ
+    type(C_PTR)                             :: pFk
+    !> FFTWで用いる\f$ g(x) \f$に対するポインタ
+    type(C_PTR)                             :: pgx
+    !> FFTWで用いる\f$ G(k) \f$に対するポインタ
+    type(C_PTR)                             :: pGk
+    !> FFTWで用いる波数ベクトル
     double precision,allocatable,private    :: K(:, :), K2(:)
+    !> FFTWで用いる配列
+    !! @details FFTWによって\f$ f(x) \to F(k) \f$と変換される
     complex(kind(0d0)),pointer,private      :: fx(:), Fk(:)
+    !> FFTWで用いる配列
+    !! @details FFTWによって\f$ g(x) \to G(k) \f$と変換される
+    !! @note プログラム内で用いていないかもしれない。コードから除外？
     complex(kind(0d0)),pointer,private      :: gx(:), Gk(:)
-    type(C_PTR)                             :: pfx, pFk
-    type(C_PTR)                             :: pgx, pGk
     ! MPI
+    !> MPIが使用するプロセッサー数
     integer                                 :: mpi_num_procs = -1
+    !> プロセスが対応するMPIのRankが格納される変数
     integer                                 :: mpi_rank = 0
+    !> MPIが吐いたエラーが格納される変数
     integer                                 :: mpi_ierr = -1
     ! MISC
-    integer,allocatable                     :: i2ix(:), i2iy(:), i2iz(:), ixyz2i(:, :, :)
-    complex(kind(0d0)),allocatable          :: old_phi(:), ztemp(:), ztemp2(:), HPhi(:)
+    !> 全体のインデックス\f$ i \f$からx軸のインデックス\f$ ix \f$に射影する配列
+    integer,allocatable                     :: i2ix(:)
+    !> 全体のインデックス\f$ i \f$からy軸のインデックス\f$ iy \f$に射影する配列
+    integer,allocatable                     :: i2iy(:)
+    !> 全体のインデックス\f$ i \f$からz軸のインデックス\f$ iz \f$に射影する配列
+    integer,allocatable                     :: i2iz(:)
+    !> それぞれの軸のインデックス\f$ (ix,iy,iz) \f$から全体のインデックス\f$ i \f$に射影する配列
+    integer,allocatable                     :: ixyz2i(:, :, :)
+    !> ひとつ前の時刻における波動関数
+    complex(kind(0d0)),allocatable          :: old_phi(:)
+    !> 一時的なデータを格納するための配列
+    complex(kind(0d0)),allocatable          :: ztemp(:)
+    !> 一時的なデータを格納するための配列
+    complex(kind(0d0)),allocatable          :: ztemp2(:)
+    !> ハミルトニアンを作用させた配列を格納するための配列
+    !! @note 便宜上変数名にPhiを用いているが、必ずしも格納される値は \f$ \hat{H}|\Phi \rangle \f$ではないことに注意。係数や複数のハミルトニアンが既に作用している可能性がある。
+    complex(kind(0d0)),allocatable          :: HPhi(:)
+    !> 密度を格納する配列
+    !! @details Predictor-Corrector法を用いる場合は必ずしも密度と波動関数の時刻は一致しないために宣言される
     double precision,allocatable            :: density(:)
-    complex(kind(0d0)),allocatable          :: zgrad(:,:), drevert(:), ztrans(:), zlap(:), zAbs2Gradient(:)
-    complex(kind(0d0)),allocatable          :: zLxPhi(:), zLyPhi(:), zLzPhi(:)
+    !> 勾配を計算した結果を格納するための配列
+    complex(kind(0d0)),allocatable          :: zgrad(:,:)
+    !> 高速フーリエ逆変換を行ったあとの結果を格納するための配列
+    complex(kind(0d0)),allocatable          :: drevert(:)
+    !> 高速フーリエ変換を行ったあとの結果を格納するための配列
+    complex(kind(0d0)),allocatable          :: ztrans(:)
+    !> ラプラシアンを計算した結果を格納するための配列
+    complex(kind(0d0)),allocatable          :: zlap(:)
+    !> \f$ |\nabla F|^2 \f$を計算した結果を格納するための配列
+    complex(kind(0d0)),allocatable          :: zAbs2Gradient(:)
+    !> 角運動量演算子を作用させた波動関数のx成分を格納する配列
+    complex(kind(0d0)),allocatable          :: zLxPhi(:)
+    !> 角運動量演算子を作用させた波動関数のy成分を格納する配列
+    complex(kind(0d0)),allocatable          :: zLyPhi(:)
+    !> 角運動量演算子を作用させた波動関数のz成分を格納する配列
+    complex(kind(0d0)),allocatable          :: zLzPhi(:)
+    !> 空間の次元が格納される変数であり、setting.f90内のinitialize()を呼ぶことで設定される
+    !! @details 1次元のときはDIM=1, 2次元のときはDIM=2, 3次元のときはDIM=3となる
     integer                                 :: DIM         = 0
+    !> 空間の微小体積を格納する変数であり、setting.f90内のinitialize()を呼ぶことで設定される
+    !! @details 1次元のときはdV=dh, 2次元のときはdV=dh^2, 3次元のときはdV=dh^3となる
     double precision                        :: dV          = 0d0
+    !> 微分演算時の境界条件のモードを指定するためのenum
     integer,parameter,private               :: DEFMODE_FDM_ZERO=0,DEFMODE_FDM_PERIODIC=1,DEFMODE_FFT=2
+    !> 微分演算時の境界条件のモード
     integer,parameter,private               :: defmode     = DEFMODE_FFT
 contains
     ! POSITION ------------------------------------------------------
+    !> インデックスからx座標を取得する
+    !! @param[in] i インデックス
+    !! @return x 座標
     double precision function xpos(i) result(x)
         integer,intent(in) :: i
         !x = dh * i
         x = -xmax + dh * ( i - 1 )
     end function
+    !> インデックスからy座標を取得する
+    !! @param[in] j インデックス
+    !! @return y 座標
     double precision function ypos(j) result(y)
         integer,intent(in) :: j
         !y = dh * j
         y = -ymax + dh * ( j - 1 )
     end function
+    !> インデックスからz座標を取得する
+    !! @param[in] k_ インデックス
+    !! @return z 座標
     double precision function zpos(k_) result(z)
         integer,intent(in) :: k_
         !z = dh * k
@@ -58,11 +128,18 @@ contains
     ! ---------------------------------------------------------------
 
     ! INTEGRATION----------------------------------------------------
+    !> 実数が格納された配列を台形公式で積分する
+    !! @param[in] f 実数配列
+    !! @return result 結果
     function integrate_real(f) result(result)
         double precision,intent(in)  :: f(1:NL)
         double precision             :: result
         result = sum(f) * dV
     end function
+    !> 実数が格納された配列を指定された円形範囲で積分する
+    !! @param[in] f 実数配列
+    !! @param[in] r 積分範囲の半径
+    !! @return result 結果
     function integrate_real_radius(f, r) result(result)
         double precision,intent(in)  :: f(1:NL)
         double precision,intent(in)  :: r
@@ -88,6 +165,9 @@ contains
     ! Integration of complex function
     ! Note that f must be function of real (even if it's treated as complex in code)
     ! and of course, the returned value should be also real.
+    !> 複素数が格納された配列を台形公式で積分する
+    !! @param[in] f 複素数配列
+    !! @return result 結果
     function integrate_complex(f) result(result)
         complex(kind(0d0)),intent(in)  :: f(1:NL)
         double precision               :: result
@@ -96,6 +176,8 @@ contains
     ! ---------------------------------------------------------------
 
     ! Normalize a function to 1 ----------------------------------
+    !> 配列を規格化する
+    !! @param[in,out] F 複素数配列
     subroutine normalize(F)
         complex(kind(0d0)),intent(inout) :: F(1:NL)
         F = F / sqrt( integrate( abs(F)**2 ) )
@@ -104,6 +186,11 @@ contains
     ! ---------------------------------------------------------------
 
     ! Time evolution with Taylor expansion --------------------------
+    !> 波動関数を(虚)時間発展させる
+    !! @param[in,out] Phi 波動関数
+    !! @param[in] Pot 外場ポテンシャル
+    !! @param[in] Omega_z 容器の回転角速度
+    !! @param[in] isimag 虚時間発展で計算するか否か
     subroutine evolve(Phi, Pot, OMEGA_z, isimag)
         complex(kind(0d0)),intent(inout)     :: Phi(1:NL)
         double precision,intent(in)          :: Pot(1:NL)
@@ -162,6 +249,10 @@ contains
         end if
     end subroutine evolve
 
+    !> 化学ポテンシャルを計算する
+    !! @param[in,out] Phi 波動関数
+    !! @param[in] Pot 外場ポテンシャル
+    !! @param[in] Omega_z 容器の回転角速度
     double precision function calc_mu(Phi, Pot, OMEGA_z)
         complex(kind(0d0)),intent(in)  :: Phi(1:NL)
         double precision,intent(in)    :: Pot(1:NL)
@@ -174,6 +265,11 @@ contains
     end function
 
     ! H(ρ,V,Ω)|Phi>
+    !> ハミルトニアンを作用させた\f$ \hat{H}|\Phi\rangle \f$を計算する
+    !! @param[in,out] Phi 波動関数
+    !! @param[in] density GP方程式内の非線形項における密度配列
+    !! @param[in] Pot 外場ポテンシャル
+    !! @param[in] Omega_z 容器の回転角速度
     subroutine H(Phi, density_, Pot, OMEGA_z)
         complex(kind(0d0)),intent(in)  :: Phi(1:NL)
         double precision,intent(in)    :: Pot(1:NL)
@@ -205,6 +301,8 @@ contains
     end subroutine
     ! ---------------------------------------------------------------
 
+    !> FDM(有限差分法)とFFT(高速フーリエ変換)を行うための前準備を行う
+    !! @details この関数は微分操作を行う前に必ず呼ばれなければいけない
     subroutine prepare_derivative()
         call prepare_FDM
         if ( defmode == DEFMODE_FFT ) then
@@ -213,6 +311,8 @@ contains
     end subroutine
 
     ! Must be called in the first place
+    !> OpenMP と OpenMPI による並列化の前準備を行う
+    !! @details この関数は全ての算術操作を行う前に必ず呼ばれなければいけない
     subroutine prepare_mpi()
         integer iret, nthreads_omp, nthreads_fftw
 
@@ -241,6 +341,7 @@ contains
     end subroutine
 
     ! Prepare Finite Difference Method  -----------------------------
+    !> FDM(有限差分法)の係数を計算する
     subroutine prepare_FDM()
         integer :: i
         allocate( C1(-Nd:Nd), C2(-Nd:Nd) )
@@ -273,6 +374,10 @@ contains
     ! ---------------------------------------------------------------
 
     ! Calculate Laplacian of a function -----------------------------
+    !> FDM(有限差分法)を用いてラプラシアンを固定境界条件で計算する
+    !! @details 波動関数が境界でゼロになることを仮定しているため、円柱トラップでは使えない
+    !! @details 計算結果は\f$ zlap \f$ に格納される
+    !! @param[in] F 複素数配列
     subroutine Laplacian_Zero(F)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         integer                       :: ix, iy, iz, i, id, ip
@@ -308,7 +413,9 @@ contains
             end if
         end do
     end subroutine
-
+    !> FDM(有限差分法)を用いてラプラシアンを周期境界条件で計算する
+    !! @details 計算結果は配列\f$ zlap \f$ に格納される
+    !! @param[in] F 複素数配列
     subroutine Laplacian_Periodic(F)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         integer                       :: ix, iy, iz, i, id, ip
@@ -372,6 +479,10 @@ contains
             end do
         end if
     end subroutine
+    !> 複素数配列に対してラプラシアンを計算する
+    !! @details 境界条件ではグローバル変数の\f( defmode \f)によって指定される
+    !! @details 演算結果はグローバル変数の\f( zlap \f)に格納される
+    !! @param[in] F 実数配列
     subroutine Laplacian(F)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         double precision              :: t2, t1
@@ -390,6 +501,9 @@ contains
     ! ---------------------------------------------------------------
     
     ! A partial derivative of a function F with respect to X --------
+    !> 実数配列に対して \f$ d/dx \f$ を計算する
+    !! @details 計算結果は\f$ zgrad(:,1) \f$に格納される
+    !! @param[in] F 実数配列
     subroutine dF_dX_REAL(F)
         double precision,intent(in) :: F(1:NL)
         integer                     :: ix, iy, iz, i, id, ip
@@ -417,6 +531,9 @@ contains
             end do
         end do
     end subroutine
+    !> 複素数配列に対して \f$ d/dx \f$ を計算する
+    !! @details 計算結果は\f$ zgrad(:,1) \f$に格納される
+    !! @param[in] F 複素数配列
     subroutine dF_dX_COMPLEX(F)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         integer                       :: ix, iy, iz, i, id, ip
@@ -447,6 +564,9 @@ contains
     ! ---------------------------------------------------------------
 
     ! A partial derivative of a function F with respect to Y --------
+    !> 実数配列に対して \f$ d/dy \f$ を計算する
+    !! @details 計算結果は\f$ zgrad(:,2) \f$に格納される
+    !! @param[in] F 実数配列
     subroutine dF_dY_REAL(F)
         double precision,intent(in) :: F(1:NL)
         integer                       :: ix, iy, iz, i, id, ip
@@ -476,6 +596,9 @@ contains
             end do
         end if
     end subroutine
+    !> 複素数配列に対して \f$ d/dy \f$ を計算する
+    !! @details 計算結果は\f$ zgrad(:,2) \f$に格納される
+    !! @param[in] F 複素数配列
     subroutine dF_dY_COMPLEX(F)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         integer                       :: ix, iy, iz, i, id, ip
@@ -509,6 +632,9 @@ contains
 
 
     ! A partial derivative of a function F with respect to Z --------
+    !> 実数配列に対して \f$ d/dz \f$ を計算する
+    !! @details 計算結果は\f$ zgrad(:,3) \f$に格納される
+    !! @param[in] F 実数配列
     subroutine dF_dZ_REAL(F)
         double precision,intent(in) :: F(1:NL)
         integer                     :: ix, iy, iz, i, id, ip
@@ -538,6 +664,9 @@ contains
             end do
         end if
     end subroutine
+    !> 複素数配列に対して \f$ d/dz \f$ を計算する
+    !! @details 計算結果は\f$ zgrad(:,3) \f$に格納される
+    !! @param[in] F 複素数配列
     subroutine dF_dZ_COMPLEX(F)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         integer                       :: ix, iy, iz, i, id, ip
@@ -570,6 +699,9 @@ contains
     ! ---------------------------------------------------------------
 
     ! Calculate Gradient of a function -----------------------------
+    !> 複素数配列に対して勾配\f$ \nabla F  \f$を計算する
+    !! @details 計算結果は\f$ zgrad \f$に格納され、配列の次元はそれぞれインデックス、空間軸を指す
+    !! @param[in] F 複素数配列
     subroutine Gradient(F)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         complex(kind(0d0))            :: temp(1:NL)
@@ -585,6 +717,9 @@ contains
     ! ---------------------------------------------------------------
 
     ! Calculate |∇F|^2 ----------------------------------------------
+    !> 複素数配列に対して \f$ |\nabla F|^2 \f$ を計算する
+    !! @details 計算結果は\f$ zAbs2Gradient \f$に格納される
+    !! @param[in] F 複素数配列
     subroutine Abs2Gradient(F)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         call Gradient(F)
@@ -598,6 +733,11 @@ contains
     end subroutine Abs2Gradient
     ! ---------------------------------------------------------------
 
+    !> 波動関数に対して各エネルギーを計算する
+    !! @param[in] Phi 波動関数
+    !! @param[in] Pot 外場ポテンシャル
+    !! @param[in] Omega_z 回転角速度
+    !! @return energies 各エネルギーを格納する配列 (順番に運動エネルギー、ポテンシャルエネルギー、回転エネルギー、相互作用エネルギー)
     function calc_energies(Phi, Pot, OMEGA_z) result(energies)
         complex(kind(0d0)),intent(in)  :: Phi(1:NL)
         double precision,intent(in)    :: Pot(1:NL)
@@ -625,6 +765,11 @@ contains
     end function
 
     ! Calculate Total Energy
+    !> 波動関数に対して全エネルギーを計算する
+    !! @param[in] Phi 波動関数
+    !! @param[in] Pot 外場ポテンシャル
+    !! @param[in] OMEGA_z 回転角速度
+    !! @return total_energy 全エネルギー
     function calc_total_energy(Phi, Pot, OMEGA_z) result(total_energy)
         complex(kind(0d0)),intent(in)  :: Phi(1:NL)
         double precision,intent(in)    :: Pot(1:NL)
@@ -636,6 +781,11 @@ contains
     end function
 
     ! Make Quantized Vortex Manually
+    !> 量子渦を動的に挿入する
+    !! @details 波動関数に対して手動で位相を回転させ、動的に量子渦を挿入する
+    !! @param[in,out] Phi 波動関数
+    !! @param[in] m 巻数(winding number)
+    !! @param[in] x0,y0 量子渦の中心座標
     subroutine make_vortex(Phi, m, x0, y0)
         complex(kind(0d0)),intent(inout)       :: Phi(1:NL)
         integer,           intent(in)          :: m
@@ -659,18 +809,29 @@ contains
     end subroutine
 
     ! Phase (Complex Number)
+    !> 任意の複素数に対して位相(Argument)を計算する
+    !! @details 引数はスカラー、ベクトルのどちらでも受け付ける
+    !! @details 戻り値は引数と同じrankを取る
+    !! @param[in] Z 複素数(配列)
+    !! @return 引数で受け取った値に対応する位相
     pure elemental double precision function phase_complex(Z)
         complex(kind(0d0)),intent(in) :: Z
         phase_complex = atan2(aimag(Z), real(Z))
     end function
 
     ! Phase (Space Coordinates)
+    !> 任意の実数に対して位相 \f$ \theta = \arctan(Y/X) \f$ を計算する
+    !! @params[in] Y,X 実数
     double precision function phase_coordinates(Y, X)
         double precision,intent(in) :: X, Y
         phase_coordinates = atan2(Y, X)
     end function
 
     ! Angular momentum
+    !> 角運動量演算子を作用させた \f$ L_z | \Phi \rangle \f$ を計算する
+    !! @param[in] Phi 波動関数
+    !! @param[in] Grad 波動関数の勾配を格納した配列
+    !! @note 引数の波動関数は必要無いのでコードから除外して良い
     subroutine LzPhi(Phi, Grad)
         complex(kind(0d0)),intent(in)  :: Phi(1:NL)
         complex(kind(0d0)),intent(in)  :: Grad(1:NL,1:3)
@@ -683,6 +844,11 @@ contains
         end do
     end subroutine LzPhi
 
+    !> 角運動量演算子を作用させた \f$ L_i | \Phi \rangle \f$ を計算する
+    !! @details ここで \f$ i=(x,y,z) \f$ である
+    !! @param[in] Phi 波動関数
+    !! @param[in] Grad 波動関数の勾配を格納した配列
+    !! @note 引数の波動関数は必要無いのでコードから除外して良い
     subroutine LallPhi(Phi, Grad)
         complex(kind(0d0)),intent(in)  :: Phi(1:NL)
         complex(kind(0d0)),intent(in)  :: Grad(1:NL,1:3)
@@ -698,6 +864,8 @@ contains
     end subroutine LallPhi
 
     ! Calculate Expected Angular Momentum Value (Excluding Plank constant)
+    !> 1粒子あたりの角運動量の期待値 \f$ \langle \Phi | L_z | \Phi \rangle \f / \langle \Phi | \Phi \rangle$ を計算する
+    !! @param[in] Phi 波動関数
     double precision function calc_Lz(Phi)
         complex(kind(0d0)),intent(in)  :: Phi(1:NL)
         call Gradient(Phi)
@@ -705,7 +873,9 @@ contains
         calc_Lz = dble( integrate(conjg(Phi)*zLzPhi) )
         calc_Lz = calc_Lz / ParticleN
     end function 
-
+    !> 1粒子あたりの角運動量の期待値 \f$ \langle \Phi | L_i | \Phi \rangle / \langle \Phi | \Phi \rangle \f$ を計算する
+    !! @details ここで \f$ i=(x,y,z) \f$ である
+    !! @param[in] Phi 波動関数
     function calc_Lall(Phi) result(L)
         complex(kind(0d0)),intent(in)  :: Phi(1:NL)
         double precision               :: L(1:3)
@@ -718,6 +888,9 @@ contains
     end function 
 
     ! Probability Current
+    !> 確率流密度を計算する
+    !! @param[in] 波動関数
+    !! @return 確率流密度を格納した配列。次元はそれぞれインデックス、空間軸を指す。
     function calc_flux(Phi) result(Flux)
         complex(kind(0d0)),intent(in) :: Phi(1:NL)
         double precision              :: Flux(1:NL, 1:3)
@@ -728,7 +901,11 @@ contains
             Flux(:,id) = aimag( conjg(Phi(:))*zgrad(:,id) )
         end do
     end function
-
+    !> z軸向きの循環を計算する
+    !! @details 確率流密度から循環を計算する
+    !! @note 数値計算の仕様上、位相が不連続的に変化すると計算できなくなる
+    !! @param[in] Phi 波動関数
+    !! @param[in] Flux 確率流密度
     double precision function circulation_flux(Phi, Flux)
         complex(kind(0d0)),intent(in) :: Phi(1:NL)
         double precision,  intent(in) :: Flux(1:NL, 1:3)
@@ -760,7 +937,13 @@ contains
         circulation_flux = sum
     end function
     
-    ! (VELOCITY) * d(RADIUS)
+    ! (VELOCITY) * dh
+    !> \f( \text{circulation_flux} \f)を計算するために実装した内部関数
+    !! @details 確率流密度\f$ \textbf{j} \f$を用いて\f( \left[ \text{coe_dx} \times j_x + \text{coe_dy} \times j_y \right] / |\Phi|^2 \f)を計算する
+    !! @param[in] Phi 波動関数
+    !! @param[in] Flux 確率流密度
+    !! @param[in] ix,iy 計算する場所のインデックス
+    !! @param[in] coe_dx,coe_dy 係数
     double precision function v_dr_(Phi, Flux, ix, iy, coe_dx, coe_dy)
         complex(kind(0d0)), intent(in) :: Phi(1:NL)
         double precision,   intent(in) :: Flux(1:NL, 1:3)
@@ -773,6 +956,10 @@ contains
     end function
 
     ! circulation derived from phase
+    !> z軸向きの循環を計算する
+    !! @details 位相情報から循環を計算する
+    !! @note 数値計算の仕様上、位相が不連続的に変化すると計算できなくなる
+    !! @param[in] Phi 波動関数
     double precision function circulation_phase(Phi)
         complex(kind(0d0)),intent(in) :: Phi(1:NL)
         integer                       :: ix, iy, istart, iend
@@ -831,7 +1018,13 @@ contains
         circulation_phase = sum
     end function
 
-    ! (VELOCITY) * d(RADIUS)
+    ! (VELOCITY) * dh
+    !> \f( \text{circulation_phase} \f)を計算するために実装した内部関数
+    !! @details 位相\f$ \theta \f$を用いて\f( 0.5 \times \left[ \text{coe_dx} \times d\theta_x + \text{coe_dy} \times d\theta_y \right] / |\Phi|^2 \f)を計算する
+    !! @param[in] Phi 波動関数
+    !! @param[in] Flux 確率流密度
+    !! @param[in] ix,iy 計算する場所のインデックス
+    !! @param[in] coe_dx,coe_dy 係数
     double precision function v_dr(Phi, ix, iy, coe_dx, coe_dy)
         complex(kind(0d0)),intent(in) :: Phi(1:NL)
         integer,           intent(in) :: ix, iy, coe_dx, coe_dy
@@ -848,6 +1041,10 @@ contains
     end function
 
     ! FFTW Gradient
+    !> 複素数配列に対して勾配 \f$ \nabla G \f$ を計算する
+    !! @details 高速フーリエ変換を用いた微分演算で勾配を計算する
+    !! @details GP方程式に対して有限差分法よりも良い微分精度を持つ
+    !! @param[in] G 複素数配列
     subroutine gradient_fftw(G)
         complex(kind(0d0)),intent(in) :: G(1:NL)
         complex(kind(0d0))            :: temp1(1:NL), temp2(1:NL), temp3(1:NL)
@@ -876,6 +1073,10 @@ contains
     end subroutine
 
     ! FFTW Laplacian
+    !> 複素数配列に対してラプラシアン \f$ \Delta F \f$ を計算する
+    !! @details 高速フーリエ変換を用いた微分演算でラプラシアンを計算する
+    !! @details GP方程式に対して有限差分法よりも良い微分精度を持つ
+    !! @param[in] F 複素数配列
     subroutine laplacian_fftw(F)
         complex(kind(0d0)),intent(in) :: F(1:NL)
         complex(kind(0d0))            :: temp(1:NL)
@@ -884,6 +1085,9 @@ contains
     end subroutine
 
     ! FFTW Transform
+    !> 複素数配列に対して(順)高速フーリエ変換を行う
+    !! @param[in] in 複素数配列
+    !! @return 変換結果
     function transform_fftw(in) result(out)
         complex(kind(0d0)),intent(in) :: in(1:NL)
         complex(kind(0d0))            :: out(1:NL)
@@ -891,6 +1095,9 @@ contains
     end function
 
     ! FFTW Backward Transform
+    !> 複素数配列に対して(逆)高速フーリエ変換を行う
+    !! @param[in] in 複素数配列
+    !! @return 変換結果
     function revert_fftw(in) result(out)
         complex(kind(0d0)),intent(in) :: in(1:NL)
         complex(kind(0d0))            :: out(1:NL)
@@ -899,6 +1106,7 @@ contains
     end function
 
     ! FFTW Instantiate
+    !> 高速フーリエ変換を行うための前準備を行う
     subroutine new_fftw()
         double precision    :: Kx(1:Nx), Ky(1:Ny), Kz(1:Nz)
         integer             :: ix, iy, iz, i
@@ -943,6 +1151,10 @@ contains
     end subroutine
 
     ! FFTW Wavenumbers
+    !> 高速フーリエ変換を行うための前準備を行う
+    !! @details フーリエ変換で用いるための波数を周期境界条件を仮定して計算する
+    !! @param[in] N 次元
+    !! @return K_ 波数ベクトル
     function create_wavenumber(N) result(K_)
         integer,intent(in)  :: N
         double precision    :: K_(1:N)
@@ -964,6 +1176,7 @@ contains
     end function
 
     ! Destroy FFTW Instances
+    !> 高速フーリエ変換関連のメモリを開放する
     subroutine destroy_fftw()
         call dfftw_destroy_plan( plan_f )
         call dfftw_destroy_plan( plan_b )
