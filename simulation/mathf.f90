@@ -938,7 +938,7 @@ contains
     end function
     
     ! (VELOCITY) * dh
-    !> \f( \text{circulation_flux} \f)を計算するために実装した内部関数
+    !> circulation_fluxを計算するために実装した内部関数
     !! @details 確率流密度\f$ \textbf{j} \f$を用いて\f( \left[ \text{coe_dx} \times j_x + \text{coe_dy} \times j_y \right] / |\Phi|^2 \f)を計算する
     !! @param[in] Phi 波動関数
     !! @param[in] Flux 確率流密度
