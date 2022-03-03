@@ -214,16 +214,11 @@ program main
 
         call evolve(Phi, Pot, OMEGA_z, .false.)
 
-        ! カッコを付けないと "(abs(E-E_old) <= 10d-5 .and. is_conv) .eqv. .false." という条件式になるので注意
-        ! abs(E-E_old)/E <= 10d-5 という収束条件は弱い
-        !if ( iter >= 5000 .and. abs(E-E_old)/E <= 10d-5 .and. (is_conv .eqv. .false.) ) then
-        !    torque_iter = iter
-        !    feedback_iter = iter
-        !    call set_grid(Pot, -16.6d0)
-        !    call set_grid(Pot, Vgrid)
-        !    is_conv = .true.
-        !    write (*, *) "Feedback/Torque turned on at iter=", iter
-        !end if
+        ! Warszawskiら(2011)は、グリッチを再現する以前に同じ条件（V_pin=16.6）で量子渦の生成を行っていた
+        if ( iter == grid_iter ) then
+            call set_grid(Pot, -16.6d0)
+            call set_grid(Pot, Vgrid)
+        end if
         
         if ( abs(Nc) > 0d0 .and. torque_iter > -1 .and. iter >= torque_iter ) then
             dOMEGA_dt = - Nc / Ic

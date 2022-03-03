@@ -105,7 +105,11 @@ contains
 
         ! pinning grid
         if ( grid_type /= 0 ) then
-            call set_grid(Pot, 16.6d0)
+            if ( grid_iter > 0 ) then
+                call set_grid(Pot, 16.6d0)
+            else
+                call set_grid(Pot, Vgrid)
+            end if
         end if
 
         ! Pinning site
@@ -295,7 +299,6 @@ contains
             end if
             d = d_grid
         end if
-        write (*, '(1X,A,3(F7.3,1X))') "lattice d=", d
 
         ! Pinning grid
         do iz0 = -hindex(3), hindex(3)

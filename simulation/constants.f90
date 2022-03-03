@@ -109,6 +109,8 @@ module constants
     double precision :: delta_grid
     !> 格子点グリッドの格子点間隔
     double precision :: d_grid
+    !> 格子点グリッドを初期化に使用したものから置き換えるイテレーション
+    integer          :: grid_iter
     !> フィードバック効果を有効にするイテレーション
     integer          :: feedback_iter
     !> 外部トルク
@@ -152,6 +154,7 @@ contains
         read (100, *) x0_pin, y0_pin, z0_pin
         read (100, *) Vpin, delta_pin
         read (100, *) grid_type
+        read (100, *) grid_iter
         read (100, *) d_grid
         read (100, *) Ngrid, Vgrid, delta_grid
         read (100, *) vortex_dyn_iter
