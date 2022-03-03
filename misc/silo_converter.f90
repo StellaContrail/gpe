@@ -1,3 +1,6 @@
+!! @file silo_converter.f90
+!! @brief A small program that converts the GPE Solver output files into the Silo files.
+
 !============================================!
 !                                            !
 !               Silo converter               !
@@ -10,6 +13,7 @@
 ! todos:
 ! - create snapshot from a static solution
 
+!> メインプログラム
 program main
     use mathf
     implicit none
@@ -29,8 +33,8 @@ program main
     double precision                :: real, imag, dummy
     double precision,allocatable    :: V(:), curl_norm(:)
     complex(kind(0d0)),allocatable  :: kinetic(:), curl(:,:)
-    integer                         :: dbfile, ierr, status
-    character(:),allocatable        :: FN_OUTPUT, INPUT_DIR, INPUT_FN
+    integer                         :: dbfile, ierr, status, base_ind
+    character(:),allocatable        :: FN_OUTPUT, INPUT_DIR, INPUT_FN, BASENAME
     character(len=64)               :: INPUT_FN_TEMP
     character(len=8)                :: iter_str
     integer                         :: iter, iter_max, iter_total
@@ -42,8 +46,11 @@ program main
     write (*, '(A)')
     
     write (*, '(1X,A)', advance='no') "Input filename?: "
-    read (*, *) INPUT_FN_TEMP
+    read (*, '(A)') INPUT_FN_TEMP
+    ! Should remove "/" at the start and end of the string.
     INPUT_FN  = trim(INPUT_FN_TEMP)
+    base_ind  = scan(INPUT_FN, "/", .true.) + 1
+    BASENAME  = INPUT_FN(base_ind:)
     INPUT_DIR = "../simulation/"//INPUT_FN//"/latest/"
     !INPUT_DIR = "/home/contrail/results/3d/temporal/"//INPUT_FN//"/latest/"
 
@@ -72,7 +79,7 @@ program main
     allocate( ix2x(dims(1)), iy2y(dims(2)), iz2z(dims(3)) )
     allocate( kinetic(NL), curl(NL,3), curl_norm(NL) )
 
-    call system("mkdir ./output/"//INPUT_FN)
+    call system("mkdir ./output/"//BASENAME)
     write (*, *) "Processing the simulation result"
 
     open(100, file=INPUT_DIR//"potential.bin", form="unformatted")
@@ -96,7 +103,7 @@ program main
         ierr = dbaddiopt(optlistid, DBOPT_CYCLE, iter_total)
         ierr = dbaddiopt(optlistid, DBOPT_DTIME, time)
 
-        FN_OUTPUT = "./output/"//INPUT_FN//"/frame_"//trim(iter_str)//".silo"
+        FN_OUTPUT = "./output/"//BASENAME//"/frame_"//trim(iter_str)//".silo"
         ierr = dbcreate(FN_OUTPUT, len(FN_OUTPUT), DB_CLOBBER, DB_LOCAL, "output", 6, DB_PDB, dbfile)
         if ( dbfile == -1 ) then
             stop "Could not create silo file"
@@ -143,7 +150,7 @@ program main
         write (*, '(1X, I0, A, I0)') iter_max, "/", iter_max
     end if
     write (*, *) "Finished"
-    write (*, *) "Data saved into: "//"./output/"//INPUT_FN
+    write (*, *) "Data saved into: "//"./output/"//BASENAME
 
     write (*, *) "Finalizing"
     deallocate( V, density )

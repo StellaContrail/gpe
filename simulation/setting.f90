@@ -1,3 +1,6 @@
+!! @file setting.f90
+!! @brief This module contains initialization for the program.
+
 ! Set up wave functions and potential
 module setting
     use constants
@@ -5,12 +8,17 @@ module setting
     implicit none
 contains
     ! Initialize wave functions and potential
+    !> 系の初期化を行う
+    !! @details DIMやdVの設定、座標・インデックス配列、外場ポテンシャル、trial WFの設定を行う
+    !! @param[out] Pot 外場ポテンシャル
+    !! @param[out] Phi 波動関数
     subroutine initialize(Pot, Phi)
         complex(kind(0d0)),intent(out),optional  :: Phi(1:NL)
         double precision,intent(out)             :: Pot(1:NL)
         double precision                         :: x, y, z
         integer                                  :: ix, iy, iz, i
         double precision                         :: n0, xi
+        double precision                         :: PotMax
 
         ! dimension
         DIM = 1
@@ -45,6 +53,7 @@ contains
 
         ! external potential
         call set_potential(Pot)
+        PotMax = max(maxval(Pot), 1d0)
 
         ! saturation density
         n0 = sqrt( ParticleN / xmax**DIM )
@@ -62,7 +71,7 @@ contains
                     i = i + 1
 
                     if ( present(Phi) ) then
-                        Phi(i) = n0 * (1d0 - Pot(i)/(0.5d0*Vtrap))
+                        Phi(i) = n0 * (1d0 - Pot(i)/PotMax)
                         if ( vortex_exists ) then
                             if ( (x-x0_vortex)**2+(y-y0_vortex)**2 < xi**2 ) then
                                 Phi(i) = 0d0
@@ -77,6 +86,9 @@ contains
         call normalize(Phi)
     end subroutine initialize
 
+    !> 系に外場ポテンシャルを設定する
+    !! @details 閉じ込めポテンシャルおよび格子点ポテンシャルを設定する
+    !! @params[out] Pot 外場ポテンシャル
     subroutine set_potential(Pot)
         double precision,intent(out) :: Pot(1:NL)
         double precision :: x, y, z
@@ -102,6 +114,10 @@ contains
         end if
     end subroutine
     
+    !> ファイルから波動関数と外場ポテンシャルを読み込む
+    !! @param[out] Phi 波動関数
+    !! @param[out] Pot 外場ポテンシャル
+    !! @note この関数はまだ開発途中
     subroutine load_system(Phi, Pot, path)
         complex(kind(0d0)),intent(out)  :: Phi(1:NL)
         double precision,intent(out)    :: Pot(1:NL)
@@ -133,6 +149,9 @@ contains
     end subroutine
 
     ! Trap potential
+    !> 閉じ込めポテンシャルの関数を定義する
+    !! @param[in] x,y,z 座標
+    !! @return 該当座標におけるポテンシャルの高さ
     function trap_potential(x, y, z) result(V)
         double precision,intent(in) :: x, y, z
         double precision            :: V, r
@@ -157,6 +176,11 @@ contains
     end function
 
     ! locate a pinning site
+    !> 格子点ポテンシャルの関数を定義する
+    !! @param[out] Pot 外場ポテンシャル
+    !! @param[in] x0,y0,z0 格子点の中心座標
+    !! @param[in] Vi 格子点ポテンシャルの高さ
+    !! @param[in] delta 格子点ポテンシャルの大きさ
     subroutine set_pin(Pot, x0, y0, z0, Vi, delta)
         double precision,intent(out):: Pot(1:NL)
         double precision,intent(in) :: x0, y0, z0
@@ -175,6 +199,9 @@ contains
     end subroutine
 
     ! PRODUCE ARTIFICIAL SOUND WAVE
+    !> 動的に格子点を挿入して音波を発生させる
+    !! @param[out] Pot 外場ポテンシャル
+    !! @param[in] x0,y0,z0 音源の中心座標
     subroutine set_soundwave(Pot, x0, y0, z0)
         double precision,intent(out):: Pot(1:NL)
         double precision,intent(in) :: x0, y0, z0
@@ -182,6 +209,11 @@ contains
         call set_pin(Pot, x0, y0, z0, 240d0, 4d0)
     end subroutine
 
+<<<<<<< HEAD
+=======
+    !> 系から格子点グリッドを取り外す
+    !! @param[out] Pot 外場ポテンシャル
+>>>>>>> 3d881b0ae56b7c880cf15ffc5a7b6deef1180c49
     subroutine unset_grid(Pot)
         double precision,intent(out):: Pot(1:NL)
         double precision            :: x0, y0, z0
@@ -232,6 +264,14 @@ contains
         end if
     end subroutine
 
+<<<<<<< HEAD
+=======
+    !> 系に格子グリッドを設定する
+    !! @param[out] Pot 外場ポテンシャル
+    !! @param[in] V0 格子点ポテンシャルの高さ
+    !! @note V0=Vgrid にして良い
+    !! @note 系のサイズが正方形でない場合は格子間隔の計算に問題がある可能性
+>>>>>>> 3d881b0ae56b7c880cf15ffc5a7b6deef1180c49
     subroutine set_grid(Pot, V0) 
         double precision,intent(out):: Pot(1:NL)
         double precision            :: x0, y0, z0

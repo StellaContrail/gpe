@@ -1,3 +1,6 @@
+!! @file gpe.f90
+!! @brief This module contains main procedures for the program.
+
 !============================================!
 !                                            !
 !            Glitching simulation            !
@@ -7,6 +10,8 @@
 !                                            !
 !============================================!
 
+!> プログラムのメインコード
+!! @details 前半がプログラムの初期化と虚時間発展、後半で実時間発展を計算する
 program main
     use constants
     use mathf
@@ -101,6 +106,7 @@ program main
     ! FILE I/O
     if ( mpi_rank == 0 ) then
         open(10, file=RESULT_DIRECTORY // "energy_imag.bin", form="unformatted", status="replace")
+        call output_complex(RESULT_DIRECTORY // "wf_trial.bin", Phi)
     end if
 
     E       = -128d0
@@ -210,8 +216,12 @@ program main
 
         ! カッコを付けないと "(abs(E-E_old) <= 10d-5 .and. is_conv) .eqv. .false." という条件式になるので注意
         ! abs(E-E_old)/E <= 10d-5 という収束条件は弱い
+<<<<<<< HEAD
         ! Eの計算は相当コストが掛かるので，iter=5000で十分に収束していると仮定する．
         !if ( iter >= 5000 .and. (is_conv .eqv. .false.) ) then
+=======
+        !if ( iter >= 5000 .and. abs(E-E_old)/E <= 10d-5 .and. (is_conv .eqv. .false.) ) then
+>>>>>>> 3d881b0ae56b7c880cf15ffc5a7b6deef1180c49
         !    torque_iter = iter
         !    feedback_iter = iter
         !    call set_grid(Pot, -16.6d0)
