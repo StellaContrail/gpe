@@ -82,8 +82,6 @@ contains
         double precision :: x, y, z
         integer :: i
 
-        write (*, *) "R0=", R0
-
         do i = 1, NL
             x = xpos(i2ix(i))
             y = ypos(i2iy(i))
@@ -92,6 +90,11 @@ contains
             ! Trap potential
             Pot(i) = trap_potential(x, y, z)
         end do
+
+        ! pinning grid
+        if ( grid_type /= 0 ) then
+            call set_grid(Pot, 16.6d0)
+        end if
 
         ! Pinning site
         if ( pin_exists ) then
@@ -179,9 +182,60 @@ contains
         call set_pin(Pot, x0, y0, z0, 240d0, 4d0)
     end subroutine
 
-    subroutine set_grid(Pot) 
+    subroutine unset_grid(Pot)
         double precision,intent(out):: Pot(1:NL)
         double precision            :: x0, y0, z0
+        integer                     :: ix0, iy0, iz0
+        double precision            :: d(3)
+        integer                     :: hindex(3)
+
+        hindex = 0
+        if ( Nx > 1 ) then
+            hindex(1) = int(0.5d0*(Ngrid-1))
+            d(1)      = Nx*dh/(Ngrid-1)
+        end if
+        if ( Ny > 1 ) then
+            hindex(2) = int(0.5d0*(Ngrid-1))
+            d(2)      = Ny*dh/(Ngrid-1)
+        end if
+        if ( Nz > 1 ) then
+            hindex(3) = int(0.5d0*(Ngrid-1))
+            d(3)      = Nz*dh/(Ngrid-1)
+        end if
+
+        ! Pinning grid
+        do iz0 = -hindex(3), hindex(3)
+            z0 = iz0 * d(3)
+            do iy0 = -hindex(2), hindex(2)
+                y0 = iy0 * d(2)
+                do ix0 = -hindex(1), hindex(1)
+                    x0 = ix0 * d(1)
+
+                    call set_pin(Pot, x0, y0, z0, -Vgrid, delta_grid)
+                end do
+            end do
+        end do
+
+        ! BCC lattice
+        if ( grid_type == 2 ) then
+            do iz0 = -hindex(3), hindex(3)-1
+                z0 = iz0 * d(3) + 0.5d0*d(3)
+                do iy0 = -hindex(2), hindex(2)-1
+                    y0 = iy0 * d(2) + 0.5d0*d(2)
+                    do ix0 = -hindex(1), hindex(1)-1
+                        x0 = ix0 * d(1) + 0.5d0*d(1)
+
+                        call set_pin(Pot, x0, y0, z0, -Vgrid, delta_grid)
+                    end do
+                end do
+            end do
+        end if
+    end subroutine
+
+    subroutine set_grid(Pot, V0) 
+        double precision,intent(out):: Pot(1:NL)
+        double precision            :: x0, y0, z0
+        double precision            :: V0
         integer                     :: ix0, iy0, iz0
         double precision            :: d(3)
         integer                     :: hindex(3)
@@ -217,7 +271,7 @@ contains
                 do ix0 = -hindex(1), hindex(1)
                     x0 = ix0 * d(1)
 
-                    call set_pin(Pot, x0, y0, z0, Vgrid, delta_grid)
+                    call set_pin(Pot, x0, y0, z0, V0, delta_grid)
                 end do
             end do
         end do
@@ -231,7 +285,7 @@ contains
                     do ix0 = -hindex(1), hindex(1)-1
                         x0 = ix0 * d(1) + 0.5d0*d(1)
 
-                        call set_pin(Pot, x0, y0, z0, Vgrid, delta_grid)
+                        call set_pin(Pot, x0, y0, z0, V0, delta_grid)
                     end do
                 end do
             end do
